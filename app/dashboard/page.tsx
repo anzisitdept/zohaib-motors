@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Fragment } from "react";
 import {
   collection, query, orderBy, limit, onSnapshot, Timestamp, getDocs, where
 } from "firebase/firestore";
@@ -83,38 +83,38 @@ type MetricKey = "bank" | "cash" | "inventory" | "receivables" | "payables";
 const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
 
 const METRIC_CONFIG: Record<MetricKey, { label: string; color: string; ring: string; icon: any; gradient: string }> = {
-  bank:        { label: "Bank Balance",    color: "from-blue-500 to-blue-700",    ring: "ring-blue-300",    icon: Wallet,     gradient: "#3b82f6" },
-  cash:        { label: "Cash in Hand",    color: "from-emerald-500 to-emerald-700", ring: "ring-emerald-300", icon: Banknote,  gradient: "#10b981" },
-  inventory:   { label: "Inventory Value", color: "from-indigo-500 to-indigo-700",  ring: "ring-indigo-300",  icon: Car,       gradient: "#8b5cf6" },
-  receivables: { label: "Receivables",     color: "from-amber-500 to-amber-700",   ring: "ring-amber-300",   icon: CreditCard, gradient: "#f59e0b" },
-  payables:    { label: "Payables",        color: "from-rose-500 to-rose-700",     ring: "ring-rose-300",    icon: Users,      gradient: "#ef4444" },
+  bank: { label: "Bank Balance", color: "from-blue-500 to-blue-700", ring: "ring-blue-300", icon: Wallet, gradient: "#3b82f6" },
+  cash: { label: "Cash in Hand", color: "from-emerald-500 to-emerald-700", ring: "ring-emerald-300", icon: Banknote, gradient: "#10b981" },
+  inventory: { label: "Inventory Value", color: "from-indigo-500 to-indigo-700", ring: "ring-indigo-300", icon: Car, gradient: "#8b5cf6" },
+  receivables: { label: "Receivables", color: "from-amber-500 to-amber-700", ring: "ring-amber-300", icon: CreditCard, gradient: "#f59e0b" },
+  payables: { label: "Payables", color: "from-rose-500 to-rose-700", ring: "ring-rose-300", icon: Users, gradient: "#ef4444" },
 };
 
 // ─── Quick Actions ─────────────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
-  { label: "New Registration",   href: "/dashboard/registry",          icon: UserPlus,      iconColor: "text-[#E5484D]" },
-  { label: "Sale Invoice",       href: "/dashboard/sale-invoice",      icon: Receipt,       iconColor: "text-[#5B7FD1]" },
-  { label: "Purchase Invoice",   href: "/dashboard/purchase-invoice",  icon: ShoppingCart,  iconColor: "text-[#F2A93C]" },
-  { label: "Cash Voucher",       href: "/dashboard/cash-voucher",      icon: Banknote,      iconColor: "text-[#E5484D]" },
-  { label: "General Voucher",    href: "/dashboard/general-voucher",   icon: BookOpen,      iconColor: "text-[#5B7FD1]" },
-  { label: "Clients",            href: "/dashboard/clients",           icon: Users,         iconColor: "text-[#F2A93C]" },
-  { label: "Purchase Inventory", href: "/dashboard/purchase-inventory",icon: Package,       iconColor: "text-[#E5484D]" },
-  { label: "General Ledger",     href: "/dashboard/general-ledger",    icon: BarChart3,     iconColor: "text-[#5B7FD1]" },
-  { label: "Reports",            href: "/dashboard/reports",           icon: ClipboardList, iconColor: "text-[#F2A93C]" },
+  { label: "New Registration", href: "/dashboard/registry", icon: UserPlus, iconColor: "text-[#E5484D]" },
+  { label: "Sale Invoice", href: "/dashboard/sale-invoice", icon: Receipt, iconColor: "text-[#5B7FD1]" },
+  { label: "Purchase Invoice", href: "/dashboard/purchase-invoice", icon: ShoppingCart, iconColor: "text-[#F2A93C]" },
+  { label: "Cash Voucher", href: "/dashboard/cash-voucher", icon: Banknote, iconColor: "text-[#E5484D]" },
+  { label: "General Voucher", href: "/dashboard/general-voucher", icon: BookOpen, iconColor: "text-[#5B7FD1]" },
+  { label: "Clients", href: "/dashboard/clients", icon: Users, iconColor: "text-[#F2A93C]" },
+  { label: "Purchase Inventory", href: "/dashboard/purchase-inventory", icon: Package, iconColor: "text-[#E5484D]" },
+  { label: "General Ledger", href: "/dashboard/general-ledger", icon: BarChart3, iconColor: "text-[#5B7FD1]" },
+  { label: "Reports", href: "/dashboard/reports", icon: ClipboardList, iconColor: "text-[#F2A93C]" },
 ];
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useAuth();
 
-  const [cars, setCars]               = useState<CarData[]>([]);
-  const [recentLogs, setRecentLogs]   = useState<LogData[]>([]);
-  const [accounts, setAccounts]       = useState<AccountData[]>([]);
-  const [inventory, setInventory]     = useState<InventoryItem[]>([]);
+  const [cars, setCars] = useState<CarData[]>([]);
+  const [recentLogs, setRecentLogs] = useState<LogData[]>([]);
+  const [accounts, setAccounts] = useState<AccountData[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [inventoryValue, setInventoryValue] = useState(0);
-  const [vouchers, setVouchers]       = useState<VoucherData[]>([]);
+  const [vouchers, setVouchers] = useState<VoucherData[]>([]);
   const [activeMetric, setActiveMetric] = useState<MetricKey>("bank");
-  const [loading, setLoading]         = useState(true);
+  const [loading, setLoading] = useState(true);
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -189,12 +189,12 @@ export default function DashboardPage() {
 
     return {
       total: cars.length,
-      docsShowroom:   cars.filter(c => c.fileStatus === "Showroom").length,
-      docsExcise:     cars.filter(c => c.fileStatus === "At Excise").length,
-      docsDelivered:  cars.filter(c => c.fileStatus?.toLowerCase().includes("delivered")).length,
+      docsShowroom: cars.filter(c => c.fileStatus === "Showroom").length,
+      docsExcise: cars.filter(c => c.fileStatus === "At Excise").length,
+      docsDelivered: cars.filter(c => c.fileStatus?.toLowerCase().includes("delivered")).length,
       platesShowroom: cars.filter(c => c.plateStatus === "Showroom").length,
       platesNotAvail: cars.filter(c => ["Not Issued from Excise", "At Party's Hand", "Never Applied"].includes(c.plateStatus || "")).length,
-      platesDelivered:cars.filter(c => c.plateStatus?.toLowerCase().includes("delivered")).length,
+      platesDelivered: cars.filter(c => c.plateStatus?.toLowerCase().includes("delivered")).length,
       exciseOverdue, plateDelayed,
     };
   }, [cars]);
@@ -240,8 +240,8 @@ export default function DashboardPage() {
       const bankIds = new Set(bankAccs.map(a => a.id));
       vouchers.forEach(v => {
         const involved = (v.cashAccountId && bankIds.has(v.cashAccountId)) ||
-                         (v.counterAccountId && bankIds.has(v.counterAccountId)) ||
-                         (v.accountId && bankIds.has(v.accountId));
+          (v.counterAccountId && bankIds.has(v.counterAccountId)) ||
+          (v.accountId && bankIds.has(v.accountId));
         if (involved) addToTrend(v.date, v.amount || 0);
       });
     } else if (activeMetric === "cash") {
@@ -250,8 +250,8 @@ export default function DashboardPage() {
       const cashIds = new Set(cashAccs.map(a => a.id));
       vouchers.forEach(v => {
         const involved = (v.cashAccountId && cashIds.has(v.cashAccountId)) ||
-                         (v.counterAccountId && cashIds.has(v.counterAccountId)) ||
-                         (v.accountId && cashIds.has(v.accountId));
+          (v.counterAccountId && cashIds.has(v.counterAccountId)) ||
+          (v.accountId && cashIds.has(v.accountId));
         if (involved) addToTrend(v.date, v.amount || 0);
       });
     } else if (activeMetric === "inventory") {
@@ -326,18 +326,18 @@ export default function DashboardPage() {
 
   // ─── Chart titles ──────────────────────────────────────────────────────────────
   const pieTitle: Record<MetricKey, string> = {
-    bank:        "Bank Accounts",
-    cash:        "Cash Accounts",
-    inventory:   "Top Vehicles by Value",
+    bank: "Bank Accounts",
+    cash: "Cash Accounts",
+    inventory: "Top Vehicles by Value",
     receivables: "Top Clients Owing Us",
-    payables:    "Top Clients We Owe",
+    payables: "Top Clients We Owe",
   };
   const lineTitle: Record<MetricKey, string> = {
-    bank:        "Bank Activity Over Time",
-    cash:        "Cash Activity Over Time",
-    inventory:   "Purchase Invoices Over Time",
+    bank: "Bank Activity Over Time",
+    cash: "Cash Activity Over Time",
+    inventory: "Purchase Invoices Over Time",
     receivables: "Sales Invoices Over Time",
-    payables:    "Purchase Invoices Over Time",
+    payables: "Purchase Invoices Over Time",
   };
 
   return (
@@ -480,7 +480,7 @@ export default function DashboardPage() {
                   <AreaChart data={chartData.trendArray} margin={{ top: 10, right: 10, left: 30, bottom: 0 }}>
                     <defs>
                       <linearGradient id="metricGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor={METRIC_CONFIG[activeMetric].gradient} stopOpacity={0.25} />
+                        <stop offset="5%" stopColor={METRIC_CONFIG[activeMetric].gradient} stopOpacity={0.25} />
                         <stop offset="95%" stopColor={METRIC_CONFIG[activeMetric].gradient} stopOpacity={0} />
                       </linearGradient>
                     </defs>
@@ -533,7 +533,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-              {/* ═══════════════════════════════════════════════════════════════
+        {/* ═══════════════════════════════════════════════════════════════
           FILE TRACKING DASHBOARD (Integrated)
         ═══════════════════════════════════════════════════════════════ */}
         <div className="pt-4">
@@ -598,8 +598,8 @@ export default function DashboardPage() {
           </Card>
 
           <div className="space-y-4">
-            <StatsCard title="Total Fleet Volume"       value={analytics.total}        icon={Car}           colorClass="bg-primary text-primary-foreground text-white border-slate-700" />
-            <StatsCard title="Completed Registrations" value={analytics.docsDelivered} icon={CheckCircle2}  colorClass="bg-green-50 text-green-600 border-green-100" />
+            <StatsCard title="Total Fleet Volume" value={analytics.total} icon={Car} colorClass="bg-primary text-primary-foreground text-white border-slate-700" />
+            <StatsCard title="Completed Registrations" value={analytics.docsDelivered} icon={CheckCircle2} colorClass="bg-green-50 text-green-600 border-green-100" />
           </div>
         </div>
 
@@ -620,13 +620,13 @@ export default function DashboardPage() {
                   { label: "At Excise", value: analytics.docsExcise, cls: "bg-orange-100 text-orange-700" },
                   { label: "Delivered", value: analytics.docsDelivered, cls: "bg-green-100 text-green-700" },
                 ].map((s, i, arr) => (
-                  <>
-                    <div key={s.label} className="flex flex-col items-center gap-1.5 bg-card px-2">
+                  <Fragment key={s.label}>
+                    <div className="flex flex-col items-center gap-1.5 bg-card px-2">
                       <div className={`w-11 h-11 rounded-xl ${s.cls} flex items-center justify-center shadow-sm font-bold text-base`}>{s.value}</div>
                       <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">{s.label}</span>
                     </div>
-                    {i < arr.length - 1 && <ArrowRight size={16} className="text-muted-foreground shrink-0" key={`arr-${i}`} />}
-                  </>
+                    {i < arr.length - 1 && <ArrowRight size={16} className="text-muted-foreground shrink-0" />}
+                  </Fragment>
                 ))}
               </div>
               <div className="bg-muted p-2.5 rounded-lg flex justify-between items-center text-xs">
@@ -647,17 +647,17 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between relative">
                 <div className="absolute top-1/2 left-0 w-full h-1 bg-muted -z-10 -translate-y-1/2 rounded-full" />
                 {[
-                  { label: "Showroom",      value: analytics.platesShowroom, cls: "bg-blue-100 text-blue-700" },
-                  { label: "Not Available", value: analytics.platesNotAvail,  cls: "bg-muted text-muted-foreground" },
-                  { label: "Delivered",     value: analytics.platesDelivered, cls: "bg-green-100 text-green-700" },
+                  { label: "Showroom", value: analytics.platesShowroom, cls: "bg-blue-100 text-blue-700" },
+                  { label: "Not Available", value: analytics.platesNotAvail, cls: "bg-muted text-muted-foreground" },
+                  { label: "Delivered", value: analytics.platesDelivered, cls: "bg-green-100 text-green-700" },
                 ].map((s, i, arr) => (
-                  <>
-                    <div key={s.label} className="flex flex-col items-center gap-1.5 bg-card px-2">
+                  <Fragment key={s.label}>
+                    <div className="flex flex-col items-center gap-1.5 bg-card px-2">
                       <div className={`w-11 h-11 rounded-xl ${s.cls} flex items-center justify-center shadow-sm font-bold text-base`}>{s.value}</div>
                       <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">{s.label}</span>
                     </div>
-                    {i < arr.length - 1 && <ArrowRight size={16} className="text-muted-foreground shrink-0" key={`arr-${i}`} />}
-                  </>
+                    {i < arr.length - 1 && <ArrowRight size={16} className="text-muted-foreground shrink-0" />}
+                  </Fragment>
                 ))}
               </div>
               <div className="bg-muted p-2.5 rounded-lg flex justify-between items-center text-xs">
@@ -680,7 +680,7 @@ export default function DashboardPage() {
                 <AreaChart data={fileTrendData}>
                   <defs>
                     <linearGradient id="fileGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.2} />
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
                       <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                     </linearGradient>
                   </defs>

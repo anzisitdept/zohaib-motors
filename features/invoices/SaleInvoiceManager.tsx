@@ -281,23 +281,23 @@ export const SaleInvoiceManager = () => {
   };
 
   const InfoRow = ({ label, value }: { label: string; value: any }) => (
-    <div className="flex justify-between items-center py-1.5 border-b border-slate-50 last:border-0">
-      <span className="text-xs text-slate-400 font-medium">{label}</span>
-      <span className="text-xs font-semibold text-slate-800">{value || "—"}</span>
+    <div className="flex justify-between items-center py-1.5 border-b border-white/5 last:border-0">
+      <span className="text-xs text-zinc-400 font-medium">{label}</span>
+      <span className="text-xs font-semibold text-zinc-200">{value || "—"}</span>
     </div>
   );
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-slate-50">
+      <Card className="bg-zinc-900 border-white/5 shadow-xl">
+        <CardHeader className="border-b border-white/5 bg-zinc-800/30">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-600 rounded-xl text-white shadow">
+            <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl shadow-inner border border-emerald-500/20">
               <ShoppingBag size={20} />
             </div>
             <div>
-              <CardTitle className="text-lg text-slate-900">Sale Invoice</CardTitle>
-              <CardDescription>Select an available vehicle and record its sale. Only purchased (invoiced) vehicles are shown.</CardDescription>
+              <CardTitle className="text-lg text-white">Sale Invoice</CardTitle>
+              <CardDescription className="text-zinc-400">Select an available vehicle and record its sale. Only purchased (invoiced) vehicles are shown.</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -342,7 +342,7 @@ export const SaleInvoiceManager = () => {
           {selectedVehicle && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Left: Vehicle Info */}
-              <div className="bg-slate-50 rounded-xl border border-slate-100 p-4 space-y-0.5">
+              <div className="bg-zinc-800/30 rounded-xl border border-white/5 p-4 space-y-0.5">
                 <div className="flex items-center gap-2 mb-3">
                   <Info size={14} className="text-slate-400" />
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Vehicle Details</span>
@@ -359,7 +359,7 @@ export const SaleInvoiceManager = () => {
               </div>
 
               {/* Right: Financial Info */}
-              <div className="bg-slate-50 rounded-xl border border-slate-100 p-4 space-y-0.5">
+              <div className="bg-zinc-800/30 rounded-xl border border-white/5 p-4 space-y-0.5">
                 <div className="flex items-center gap-2 mb-3">
                   <DollarSign size={14} className="text-slate-400" />
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Cost & Investor Info</span>
@@ -387,10 +387,10 @@ export const SaleInvoiceManager = () => {
 
           {/* Sale Form */}
           {selectedVehicle && (
-            <div className="space-y-5 pt-2 border-t border-slate-100">
+            <div className="space-y-5 pt-2 border-t border-white/10">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-emerald-100 rounded-md text-emerald-600"><DollarSign size={14} /></div>
-                <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Sale Details</h4>
+                <div className="p-1.5 bg-emerald-500/20 rounded-md text-emerald-400 border border-emerald-500/20"><DollarSign size={14} /></div>
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider">Sale Details</h4>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -481,19 +481,19 @@ export const SaleInvoiceManager = () => {
 
               {/* P&L Preview */}
               {salePriceVal > 0 && (
-                <div className="p-4 bg-gradient-to-br from-emerald-50 to-slate-50 rounded-xl border border-emerald-100">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Transaction Preview</p>
+                <div className="p-4 bg-zinc-800/50 rounded-xl border border-white/5">
+                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide mb-3">Transaction Preview</p>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Sale Price</span>
-                      <span className="font-semibold text-emerald-700">Rs. {salePriceVal.toLocaleString()}</span>
+                      <span className="text-zinc-400">Sale Price</span>
+                      <span className="font-semibold text-emerald-400">Rs. {salePriceVal.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Capitalized Cost</span>
-                      <span className="font-semibold text-slate-700">− Rs. {capitalizedCost.toLocaleString()}</span>
+                      <span className="text-zinc-400">Capitalized Cost</span>
+                      <span className="font-semibold text-zinc-300">− Rs. {capitalizedCost.toLocaleString()}</span>
                     </div>
                     {selectedVehicle?.hasInvestor && commissionAmount > 0 && (
-                      <div className="flex justify-between text-purple-700 bg-purple-50 px-2 py-1 rounded-lg">
+                      <div className="flex justify-between text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-lg">
                         <span className="flex items-center gap-1">
                           <Users size={12} /> Commission ({selectedVehicle.investorName}
                           {selectedVehicle.commissionType === "Percentage" && ` · ${selectedVehicle.commissionValue}%`})
@@ -501,8 +501,8 @@ export const SaleInvoiceManager = () => {
                         <span className="font-semibold">− Rs. {commissionAmount.toLocaleString()}</span>
                       </div>
                     )}
-                    <div className={`flex justify-between font-bold border-t border-slate-200 pt-2 mt-1 ${
-                      (profit - commissionAmount) >= 0 ? "text-emerald-700" : "text-red-700"
+                    <div className={`flex justify-between font-bold border-t border-white/10 pt-2 mt-1 ${
+                      (profit - commissionAmount) >= 0 ? "text-emerald-400" : "text-red-400"
                     }`}>
                       <span className="flex items-center gap-1">
                         {(profit - commissionAmount) >= 0
@@ -541,14 +541,14 @@ export const SaleInvoiceManager = () => {
       <div className="mt-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-600 rounded-xl text-white shadow">
+            <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl shadow-inner border border-emerald-500/20">
               <ShoppingBag size={18} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Sale Invoice History</h2>
-              <p className="text-xs text-slate-400">All vehicles sold with full financial details</p>
+              <h2 className="text-lg font-bold text-white">Sale Invoice History</h2>
+              <p className="text-xs text-zinc-400">All vehicles sold with full financial details</p>
             </div>
-            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               {saleInvoices.length} sold
             </span>
           </div>
@@ -557,22 +557,22 @@ export const SaleInvoiceManager = () => {
             placeholder="Search by vehicle, buyer..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="h-9 px-3 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 w-64"
+            className="h-9 px-3 text-sm border border-white/10 rounded-lg bg-zinc-900/50 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-64"
           />
         </div>
 
         {saleInvoices.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 bg-white border border-dashed border-slate-200 rounded-2xl text-slate-400">
+          <div className="flex flex-col items-center justify-center py-16 bg-zinc-900/30 border border-dashed border-white/10 rounded-2xl text-zinc-500">
             <ShoppingBag size={36} className="mb-3 opacity-30" />
-            <p className="font-medium text-sm">No sale invoices generated yet</p>
+            <p className="font-medium text-sm text-zinc-400">No sale invoices generated yet</p>
             <p className="text-xs mt-1">Complete a sale using the form above to see it here.</p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm bg-white">
+          <div className="overflow-hidden rounded-2xl border border-white/10 shadow-lg bg-zinc-900">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white">
+                  <tr className="bg-zinc-800/50 border-b border-white/5 text-zinc-300">
                     <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">#</th>
                     <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Vehicle</th>
                     <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Chassis No.</th>
@@ -584,7 +584,7 @@ export const SaleInvoiceManager = () => {
                     <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wide">Net P&L</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-white/5">
                   {saleInvoices
                     .filter(inv => {
                       if (!searchTerm) return true;
@@ -602,44 +602,44 @@ export const SaleInvoiceManager = () => {
                       const netPL = Number(inv.netProfit ?? (sale - cost - commission));
                       const isProfit = netPL >= 0;
                       return (
-                        <tr key={inv.id} className="hover:bg-emerald-50/40 transition-colors duration-150">
-                          <td className="px-4 py-3 text-slate-400 font-mono text-xs">{idx + 1}</td>
+                        <tr key={inv.id} className="hover:bg-zinc-800/50 transition-colors duration-150">
+                          <td className="px-4 py-3 text-zinc-500 font-mono text-xs">{idx + 1}</td>
                           <td className="px-4 py-3">
-                            <div className="font-semibold text-slate-900">{inv.brandName} {inv.model}</div>
-                            <div className="text-xs text-slate-400">{inv.modelYear || inv.year} · {inv.color}</div>
+                            <div className="font-semibold text-zinc-200">{inv.brandName} {inv.model}</div>
+                            <div className="text-xs text-zinc-500">{inv.modelYear || inv.year} · {inv.color}</div>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-700">
+                            <span className="font-mono text-xs bg-zinc-800 px-2 py-0.5 rounded text-zinc-300">
                               {inv.chassisNumber || "—"}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-slate-700 text-xs">
-                            <div className="font-medium">{inv.buyerName || <span className="text-slate-300">—</span>}</div>
-                            {inv.buyerPhone && <div className="text-slate-400">{inv.buyerPhone}</div>}
+                          <td className="px-4 py-3 text-zinc-300 text-xs">
+                            <div className="font-medium">{inv.buyerName || <span className="text-zinc-600">—</span>}</div>
+                            {inv.buyerPhone && <div className="text-zinc-500">{inv.buyerPhone}</div>}
                           </td>
-                          <td className="px-4 py-3 text-slate-600 text-xs">
+                          <td className="px-4 py-3 text-zinc-400 text-xs">
                             {inv.saleDate || "—"}
                           </td>
-                          <td className="px-4 py-3 text-right text-slate-600 text-xs">
+                          <td className="px-4 py-3 text-right text-zinc-400 text-xs">
                             Rs. {cost.toLocaleString()}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <span className="font-bold text-emerald-700 text-sm">
+                            <span className="font-bold text-emerald-400 text-sm">
                               Rs. {sale.toLocaleString()}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right text-xs">
                             {commission > 0 ? (
-                              <span className="text-purple-600 font-medium">
+                              <span className="text-purple-400 font-medium">
                                 Rs. {commission.toLocaleString()}
                               </span>
                             ) : (
-                              <span className="text-slate-300">—</span>
+                              <span className="text-zinc-600">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <span className={`font-bold text-sm flex items-center justify-end gap-1 ${
-                              isProfit ? "text-emerald-600" : "text-red-500"
+                              isProfit ? "text-emerald-400" : "text-red-400"
                             }`}>
                               {isProfit ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
                               {isProfit ? "+" : "-"}Rs. {Math.abs(netPL).toLocaleString()}
@@ -656,21 +656,21 @@ export const SaleInvoiceManager = () => {
               const s = searchTerm.toLowerCase();
               return `${inv.brandName} ${inv.model}`.toLowerCase().includes(s) || (inv.buyerName || "").toLowerCase().includes(s);
             }).length === 0 && (
-              <div className="p-8 text-center text-slate-400 text-sm">No invoices match your search.</div>
+              <div className="p-8 text-center text-zinc-500 text-sm">No invoices match your search.</div>
             )}
             {/* Footer summary */}
-            <div className="px-4 py-3 bg-gradient-to-r from-emerald-50 to-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-              <span className="text-xs text-slate-400">
+            <div className="px-4 py-3 bg-zinc-800/30 border-t border-white/5 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-xs text-zinc-500">
                 {saleInvoices.length} vehicle{saleInvoices.length !== 1 ? "s" : ""} sold
               </span>
               <div className="flex gap-6">
-                <span className="text-xs text-slate-500">
-                  Total Revenue: <strong className="text-emerald-700">
+                <span className="text-xs text-zinc-400">
+                  Total Revenue: <strong className="text-emerald-400">
                     Rs. {saleInvoices.reduce((s, i) => s + (Number(i.salePrice) || 0), 0).toLocaleString()}
                   </strong>
                 </span>
-                <span className="text-xs text-slate-500">
-                  Net Profit: <strong className="text-emerald-700">
+                <span className="text-xs text-zinc-400">
+                  Net Profit: <strong className="text-emerald-400">
                     Rs. {saleInvoices.reduce((s, i) => s + (Number(i.netProfit) || 0), 0).toLocaleString()}
                   </strong>
                 </span>

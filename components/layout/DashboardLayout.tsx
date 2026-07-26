@@ -1,10 +1,10 @@
 // components/layout/DashboardLayout.tsx
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { useAuth } from "@/context/AuthContext";
-import { LogOut, Menu } from "lucide-react";
+import { LogOut, Menu, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,31 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const { userData, logout } = useAuth();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    const initialTheme = savedTheme || 'light';
+    setTheme(initialTheme);
+    if (initialTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
 
   const getInitials = (name?: string) => {
     return name
@@ -32,7 +57,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
       />
 
       <main className={cn(
-        "flex flex-col min-h-screen transition-all duration-300 ease-in-out dark bg-background text-foreground",
+        "flex flex-col min-h-screen transition-all duration-300 ease-in-out bg-background text-foreground",
         isSidebarCollapsed ? "md:pl-20" : "md:pl-64"
       )}>
         <header className="h-16 border-b border-border bg-card sticky top-0 z-40 px-4 md:px-8 flex items-center justify-between shadow-sm">
@@ -48,6 +73,18 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
 
           <div className="flex items-center gap-4">
             <GlobalSearch />
+
+            {mounted && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={toggleTheme} 
+                className="text-muted-foreground hover:text-foreground hidden sm:flex"
+                title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              >
+                {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+              </Button>
+            )}
 
             {/* User Profile Section - Hover for Logout */}
           <div className="relative group">
@@ -72,6 +109,16 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
                 <div className="p-3 border-b border-border md:hidden bg-muted">
                   <p className="font-semibold text-sm text-foreground">{userData?.name}</p>
                   <p className="text-xs text-muted-foreground uppercase">{userData?.role}</p>
+                  
+                  {mounted && (
+                    <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+                      <span className="text-xs text-muted-foreground font-medium">Theme</span>
+                      <Button variant="ghost" size="sm" onClick={toggleTheme} className="h-8 px-2 w-full justify-start gap-2">
+                        {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+                        <span className="text-xs">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={logout}

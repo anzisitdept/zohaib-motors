@@ -1,12 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, onSnapshot, query, orderBy, doc, runTransaction, serverTimestamp, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PieChart, Plus, CheckCircle2, History, Car, Calculator, AlertTriangle, Users, Trash2 } from "lucide-react";
+import { PieChart, Plus, CheckCircle2, History, Calendar, Calculator, AlertTriangle, Trash2 } from "lucide-react";
 import { SearchSelector } from "@/components/ui/SearchSelector";
 
 export const ProfitDistributionManager = () => {
@@ -18,8 +18,7 @@ export const ProfitDistributionManager = () => {
   const [history, setHistory] = useState<any[]>([]);
   
   // State
-  const [selectedCarId, setSelectedCarId] = useState("");
-  const [selectedCar, setSelectedCar] = useState<any | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState("");
   
   // Split logic
   const [splitMethod, setSplitMethod] = useState<"percentage" | "amount">("percentage");
@@ -37,10 +36,13 @@ export const ProfitDistributionManager = () => {
       setSoldCars(all.filter(c => !c.profitDistributed).sort((a, b) => b.saleDate?.localeCompare(a.saleDate)));
     });
 
-    // 2. Fetch Partners
-    const qPartners = query(collection(db, "accounts"), where("typeName", "==", "Partner"));
+    // 2. Fetch Partners (All Accounts)
+    const qPartners = query(collection(db, "accounts"));
     const unsubPartners = onSnapshot(qPartners, snap => {
-      setPartners(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      // Sort in memory just in case
+      const accs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      accs.sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+      setPartners(accs);
       setLoading(false);
     });
     
@@ -53,13 +55,45 @@ export const ProfitDistributionManager = () => {
     return () => { unsubCars(); unsubPartners(); unsubDist(); };
   }, []);
 
-  useEffect(() => {
-    const car = soldCars.find(c => c.id === selectedCarId) || null;
-    setSelectedCar(car);
-    setSplits([]);
-  }, [selectedCarId, soldCars]);
+  // Group un-distributed cars by month (YYYY-MM)
+  const carsByMonth = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    soldCars.forEach(car => {
+      if (car.saleDate) {
+        const monthStr = car.saleDate.substring(0, 7); // YYYY-MM
+        if (!groups[monthStr]) groups[monthStr] = [];
+        groups[monthStr].push(car);
+      }
+    });
+    return groups;
+  }, [soldCars]);
 
-  const netProfit = selectedCar ? Number(selectedCar.netProfit ?? (Number(selectedCar.salePrice || 0) - Number(selectedCar.capitalizedCost || 0) - Number(selectedCar.commissionPaid || 0))) : 0;
+  const availableMonths = useMemo(() => {
+    return Object.keys(carsByMonth).sort((a, b) => b.localeCompare(a));
+  }, [carsByMonth]);
+
+  useEffect(() => {
+    setSplits([]);
+  }, [selectedMonth]);
+
+  const selectedCars = selectedMonth ? carsByMonth[selectedMonth] || [] : [];
+  
+  // Calculate totals for the selected month
+  const totalRevenue = selectedCars.reduce((sum, c) => sum + Number(c.salePrice || 0), 0);
+  const totalCOGS = selectedCars.reduce((sum, c) => sum + Number(c.capitalizedCost || 0), 0);
+  const totalCommission = selectedCars.reduce((sum, c) => sum + Number(c.commissionPaid || 0), 0);
+  
+  const totalNetProfit = selectedCars.reduce((sum, c) => {
+    const carProfit = Number(c.netProfit ?? (Number(c.salePrice || 0) - Number(c.capitalizedCost || 0) - Number(c.commissionPaid || 0)));
+    return sum + carProfit;
+  }, 0);
+
+  const formatMonthName = (YYYYMM: string) => {
+    if (!YYYYMM) return "";
+    const [year, month] = YYYYMM.split("-");
+    const date = new Date(Number(year), Number(month) - 1);
+    return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+  };
 
   const addPartnerSplit = () => {
     setSplits([...splits, { partnerId: "", partnerName: "", value: "" }]);
@@ -91,7 +125,7 @@ export const ProfitDistributionManager = () => {
       const evenPct = (100 / count).toFixed(2);
       setSplits(splits.map(s => ({ ...s, value: evenPct })));
     } else {
-      const evenAmt = (netProfit / count).toFixed(0);
+      const evenAmt = (totalNetProfit / count).toFixed(0);
       setSplits(splits.map(s => ({ ...s, value: evenAmt })));
     }
   };
@@ -101,7 +135,7 @@ export const ProfitDistributionManager = () => {
   splits.forEach(s => {
     const val = Number(s.value) || 0;
     if (splitMethod === "percentage") {
-      totalAllocated += (netProfit * val) / 100;
+      totalAllocated += (totalNetProfit * val) / 100;
     } else {
       totalAllocated += val;
     }
@@ -109,10 +143,10 @@ export const ProfitDistributionManager = () => {
   
   const isBalanced = splitMethod === "percentage" 
     ? Math.abs(splits.reduce((sum, s) => sum + (Number(s.value) || 0), 0) - 100) < 0.1
-    : Math.abs(totalAllocated - netProfit) < 1;
+    : Math.abs(totalAllocated - totalNetProfit) < 1;
 
   const handlePostDistribution = async () => {
-    if (!selectedCar) return;
+    if (!selectedMonth || selectedCars.length === 0) return;
     if (splits.some(s => !s.partnerId || !s.value)) {
       alert("Please fill in all partner split details."); return;
     }
@@ -120,19 +154,21 @@ export const ProfitDistributionManager = () => {
       alert(splitMethod === "percentage" ? "Total percentage must equal 100%." : "Total allocated amount must equal the Net Profit.");
       return;
     }
-    if (!confirm("Are you sure you want to POST this profit distribution? This will update partner account balances and cannot be undone.")) return;
+    if (!confirm("Are you sure you want to POST this monthly profit distribution? This will update partner account balances and mark all vehicles in this month as distributed.")) return;
 
     setPosting(true);
     try {
+      const monthName = formatMonthName(selectedMonth);
+
       await runTransaction(db, async (tx) => {
         // 1. Prepare breakdown
         const breakdown = splits.map(s => {
           const val = Number(s.value);
-          const amount = splitMethod === "percentage" ? (netProfit * val) / 100 : val;
+          const amount = splitMethod === "percentage" ? (totalNetProfit * val) / 100 : val;
           return {
             partnerId: s.partnerId,
             partnerName: s.partnerName,
-            percentage: splitMethod === "percentage" ? val : (val / netProfit) * 100,
+            percentage: splitMethod === "percentage" ? val : (val / totalNetProfit) * 100,
             amount: amount
           };
         });
@@ -156,14 +192,14 @@ export const ProfitDistributionManager = () => {
               tx.set(vRef, {
                 voucherNo: "PD-" + Math.floor(100000 + Math.random() * 900000),
                 date: new Date().toISOString().split("T")[0],
-                description: `Profit Distribution: ${selectedCar.brandName} ${selectedCar.model} · Partner: ${split.partnerName}`,
+                description: `Monthly Profit Distribution: ${monthName} · Partner: ${split.partnerName}`,
                 amount: split.amount,
                 debit: split.amount,
                 credit: split.amount,
                 counterAccountId: split.partnerId,
                 counterAccountName: split.partnerName,
                 counterType: "credit",
-                vehicleId: selectedCar.id,
+                reference: selectedMonth,
                 createdAt: serverTimestamp(),
                 createdBy: user?.uid
               });
@@ -171,28 +207,33 @@ export const ProfitDistributionManager = () => {
           }
         }
 
-        // 3. Mark car as distributed
-        tx.update(doc(db, "cars", selectedCar.id), {
-          profitDistributed: true,
-          updatedAt: serverTimestamp()
-        });
+        // 3. Mark cars as distributed
+        for (const car of selectedCars) {
+          tx.update(doc(db, "cars", car.id), {
+            profitDistributed: true,
+            updatedAt: serverTimestamp()
+          });
+        }
 
         // 4. Save Distribution Record
         tx.set(doc(collection(db, "profitDistributions")), {
-          vehicleId: selectedCar.id,
-          vehicleName: `${selectedCar.brandName} ${selectedCar.model}`,
-          chassisNumber: selectedCar.chassisNumber || "N/A",
-          revenue: selectedCar.salePrice,
-          cogs: selectedCar.capitalizedCost,
-          netProfit: netProfit,
+          month: selectedMonth,
+          monthName: monthName,
+          title: `Monthly Distribution - ${monthName}`,
+          carsIncluded: selectedCars.map(c => c.id),
+          carsCount: selectedCars.length,
+          revenue: totalRevenue,
+          cogs: totalCOGS,
+          commission: totalCommission,
+          netProfit: totalNetProfit,
           breakdown: breakdown,
           createdAt: serverTimestamp(),
           createdBy: user?.uid
         });
       });
       
-      setSelectedCarId("");
-      alert("Profit distribution successfully posted!");
+      setSelectedMonth("");
+      alert("Monthly profit distribution successfully posted!");
     } catch (err: any) {
       console.error(err);
       alert("Failed to post distribution: " + err.message);
@@ -200,6 +241,13 @@ export const ProfitDistributionManager = () => {
       setPosting(false);
     }
   };
+
+  const monthItems = availableMonths.map(m => ({
+    id: m,
+    name: formatMonthName(m),
+    count: carsByMonth[m].length,
+    profit: carsByMonth[m].reduce((sum, c) => sum + Number(c.netProfit ?? (Number(c.salePrice || 0) - Number(c.capitalizedCost || 0) - Number(c.commissionPaid || 0))), 0)
+  }));
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -209,8 +257,8 @@ export const ProfitDistributionManager = () => {
             <PieChart size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Deal-by-Deal Profit Share</h1>
-            <p className="text-sm text-muted-foreground">Distribute net profits from sold vehicles to partners.</p>
+            <h1 className="text-2xl font-bold text-foreground">Monthly Profit Distribution</h1>
+            <p className="text-sm text-muted-foreground">Distribute net profits from sold vehicles to partners at the end of each month.</p>
           </div>
         </div>
       </div>
@@ -224,49 +272,66 @@ export const ProfitDistributionManager = () => {
             <Card className="border-border shadow-sm">
               <CardHeader className="border-b border-border bg-card">
                 <CardTitle className="text-base text-foreground flex items-center gap-2">
-                  <Car size={18} className="text-indigo-600" /> Select Sold Vehicle
+                  <Calendar size={18} className="text-indigo-600" /> Select Month
                 </CardTitle>
-                <CardDescription>Choose a sold vehicle to distribute its profit. Vehicles already distributed are hidden.</CardDescription>
+                <CardDescription>Choose a month to distribute the total profit from all vehicles sold during that time.</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
-                <SearchSelector
-                  items={soldCars}
-                  value={selectedCarId}
-                  onChange={setSelectedCarId}
-                  placeholder="Select a vehicle..."
-                  searchPlaceholder="Search by name or chassis..."
-                  getSearchFields={c => [c.brandName, c.model, c.chassisNumber]}
-                  itemKey={c => c.id}
-                  renderTrigger={selected => selected ? <span className="font-semibold text-foreground">{selected.brandName} {selected.model} <span className="text-muted-foreground ml-2">(Profit: Rs. {Number(selected.netProfit ?? (selected.salePrice - selected.capitalizedCost - (selected.commissionPaid||0))).toLocaleString()})</span></span> : <span className="text-muted-foreground">Choose a sold vehicle...</span>}
-                  renderItem={c => (
-                    <div className="flex justify-between items-center w-full text-left">
-                      <div>
-                        <div className="font-semibold">{c.brandName} {c.model}</div>
-                        <div className="text-xs text-muted-foreground">Chassis: {c.chassisNumber}</div>
+                {availableMonths.length === 0 ? (
+                  <div className="text-sm text-muted-foreground p-4 bg-muted rounded-lg border border-border">
+                    No pending vehicles found to distribute.
+                  </div>
+                ) : (
+                  <SearchSelector
+                    items={monthItems}
+                    value={selectedMonth}
+                    onChange={setSelectedMonth}
+                    placeholder="Select a month..."
+                    searchPlaceholder="Search month..."
+                    getSearchFields={m => [m.name, m.id]}
+                    itemKey={m => m.id}
+                    renderTrigger={selected => selected ? <span className="font-semibold text-foreground">{selected.name} <span className="text-muted-foreground ml-2">({selected.count} cars · Profit: Rs. {selected.profit.toLocaleString()})</span></span> : <span className="text-muted-foreground">Choose a month...</span>}
+                    renderItem={m => (
+                      <div className="flex justify-between items-center w-full text-left">
+                        <div>
+                          <div className="font-semibold">{m.name}</div>
+                          <div className="text-xs text-muted-foreground">{m.count} vehicles pending</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] text-muted-foreground uppercase">Monthly Profit</div>
+                          <div className="font-bold text-emerald-600">Rs. {m.profit.toLocaleString()}</div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-[10px] text-muted-foreground uppercase">Net Profit</div>
-                        <div className="font-bold text-emerald-600">Rs. {Number(c.netProfit ?? (c.salePrice - c.capitalizedCost - (c.commissionPaid||0))).toLocaleString()}</div>
-                      </div>
-                    </div>
-                  )}
-                />
+                    )}
+                  />
+                )}
 
-                {selectedCar && (
+                {selectedMonth && (
                   <div className="mt-6 space-y-4">
                     <div className="grid grid-cols-3 gap-4">
                       <div className="bg-muted p-4 rounded-xl border border-border">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Sale Revenue</p>
-                        <p className="text-lg font-semibold text-foreground">Rs. {Number(selectedCar.salePrice || 0).toLocaleString()}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Revenue</p>
+                        <p className="text-lg font-semibold text-foreground">Rs. {totalRevenue.toLocaleString()}</p>
                       </div>
                       <div className="bg-muted p-4 rounded-xl border border-border">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Total COGS</p>
-                        <p className="text-lg font-semibold text-foreground">Rs. {Number(selectedCar.capitalizedCost || 0).toLocaleString()}</p>
+                        <p className="text-lg font-semibold text-foreground">Rs. {totalCOGS.toLocaleString()}</p>
                       </div>
                       <div className="bg-emerald-50 dark:bg-emerald-950/30 p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/50">
-                        <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">Net Profit</p>
-                        <p className="text-xl font-black text-emerald-700 dark:text-emerald-400">Rs. {netProfit.toLocaleString()}</p>
+                        <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">Total Net Profit</p>
+                        <p className="text-xl font-black text-emerald-700 dark:text-emerald-400">Rs. {totalNetProfit.toLocaleString()}</p>
                       </div>
+                    </div>
+                    
+                    <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
+                       <p className="text-xs font-semibold mb-2">Vehicles Included ({selectedCars.length}):</p>
+                       <div className="flex flex-wrap gap-2">
+                          {selectedCars.map(c => (
+                            <span key={c.id} className="text-[10px] bg-white dark:bg-slate-800 px-2 py-1 rounded shadow-sm border border-border">
+                              {c.brandName} {c.model} (Rs. {Number(c.netProfit ?? (Number(c.salePrice || 0) - Number(c.capitalizedCost || 0) - Number(c.commissionPaid || 0))).toLocaleString()})
+                            </span>
+                          ))}
+                       </div>
                     </div>
 
                     <div className="pt-4 border-t border-border space-y-4">
@@ -281,15 +346,23 @@ export const ProfitDistributionManager = () => {
                       <div className="space-y-3">
                         {splits.map((split, idx) => (
                           <div key={idx} className="flex items-center gap-3">
-                            <div className="flex-1">
-                              <select 
+                            <div className="flex-1 min-w-[200px]">
+                              <SearchSelector
+                                items={partners}
                                 value={split.partnerId}
-                                onChange={e => updateSplit(idx, "partnerId", e.target.value)}
-                                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                              >
-                                <option value="" className="text-muted-foreground">Select Partner...</option>
-                                {partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                              </select>
+                                onChange={val => updateSplit(idx, "partnerId", val)}
+                                placeholder="Select Ledger Account..."
+                                searchPlaceholder="Search accounts..."
+                                getSearchFields={p => [p.name, p.typeName]}
+                                itemKey={p => p.id}
+                                renderTrigger={selected => selected ? <span className="font-semibold text-sm truncate">{selected.name} <span className="text-muted-foreground text-xs font-normal">({selected.typeName || "Account"})</span></span> : <span className="text-muted-foreground text-sm">Select Account...</span>}
+                                renderItem={p => (
+                                  <div className="flex justify-between items-center w-full">
+                                    <div className="font-medium text-sm">{p.name}</div>
+                                    <div className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded">{p.typeName || "Account"}</div>
+                                  </div>
+                                )}
+                              />
                             </div>
                             <div className="w-32 relative">
                               <Input 
@@ -334,14 +407,14 @@ export const ProfitDistributionManager = () => {
                 <CardTitle className="text-sm text-indigo-900 dark:text-indigo-400">Distribution Summary</CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
-                {!selectedCar ? (
-                  <div className="text-center text-muted-foreground text-xs py-8">Select a vehicle to view summary.</div>
+                {!selectedMonth ? (
+                  <div className="text-center text-muted-foreground text-xs py-8">Select a month to view summary.</div>
                 ) : (
                   <>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Total Net Profit</span>
-                        <span className="font-bold text-foreground">Rs. {netProfit.toLocaleString()}</span>
+                        <span className="font-bold text-foreground">Rs. {totalNetProfit.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Allocated</span>
@@ -349,8 +422,8 @@ export const ProfitDistributionManager = () => {
                       </div>
                       <div className="flex justify-between items-center text-sm border-t border-border pt-3">
                         <span className="font-bold text-foreground">Remaining</span>
-                        <span className={`font-black ${netProfit - totalAllocated === 0 ? "text-emerald-500" : "text-red-500"}`}>
-                          Rs. {Math.abs(netProfit - totalAllocated).toLocaleString()}
+                        <span className={`font-black ${totalNetProfit - totalAllocated === 0 ? "text-emerald-500" : "text-red-500"}`}>
+                          Rs. {Math.abs(totalNetProfit - totalAllocated).toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -364,7 +437,7 @@ export const ProfitDistributionManager = () => {
 
                     <Button 
                       onClick={handlePostDistribution} 
-                      disabled={posting || !selectedCar || !isBalanced || splits.length === 0}
+                      disabled={posting || !selectedMonth || !isBalanced || splits.length === 0}
                       className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 shadow-sm"
                     >
                       {posting ? "Posting..." : <><CheckCircle2 size={18} className="mr-2" /> Post to Ledgers</>}
@@ -383,7 +456,7 @@ export const ProfitDistributionManager = () => {
               <CardContent className="p-0">
                 {history.slice(0, 5).map(h => (
                   <div key={h.id} className="p-4 border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                    <div className="font-semibold text-sm text-foreground truncate">{h.vehicleName}</div>
+                    <div className="font-semibold text-sm text-foreground truncate">{h.title || h.vehicleName}</div>
                     <div className="flex justify-between items-center mt-1 text-xs">
                       <span className="text-muted-foreground">{new Date(h.createdAt?.toDate()).toLocaleDateString()}</span>
                       <span className="font-bold text-emerald-600">Rs. {Number(h.netProfit).toLocaleString()}</span>

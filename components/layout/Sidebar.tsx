@@ -53,7 +53,6 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/dashboard/account-types", label: "Account Types", icon: Layers, permissionId: "account_types" },
       { href: "/dashboard/clients", label: "Manage Clients", icon: UserCircle, permissionId: "clients" },
       { href: "/dashboard/investors", label: "Manage Investors", icon: Users, permissionId: "investors" },
-      { href: "/dashboard/banks", label: "Manage Banks", icon: Landmark },
       { href: "/dashboard/purchase-invoice", label: "Purchase Invoice", icon: PackagePlus, permissionId: "purchase_invoice" },
       { href: "/dashboard/purchase-invoices", label: "Purchase Invoice List", icon: FileText, permissionId: "purchase_invoice" },
       { href: "/dashboard/sale-invoice", label: "Sale Invoice", icon: ShoppingCart, permissionId: "sale_invoice" },

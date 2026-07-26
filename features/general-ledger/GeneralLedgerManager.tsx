@@ -263,7 +263,7 @@ export const GeneralLedgerManager = () => {
           {/* Header */}
           <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
             <div className="flex flex-col">
-              <div className="mb-3 -ml-1"><h2 className="text-3xl font-black tracking-tighter bg-gradient-to-r from-[#E5484D] to-[#8a1c20] bg-clip-text text-transparent uppercase drop-shadow-sm leading-none">ZOHAIB MOTORS</h2><div className="h-1 w-12 bg-[#1C1F26] mt-1 rounded-full opacity-80"></div></div>
+              <div className="mb-3 -ml-1"><h2 className="print-brand-text text-3xl font-black tracking-tighter bg-gradient-to-r from-[#E5484D] to-[#8a1c20] bg-clip-text text-transparent uppercase drop-shadow-sm leading-none">ZOHAIB MOTORS</h2><div className="h-1 w-12 bg-[#1C1F26] mt-1 rounded-full opacity-80"></div></div>
               <h1 className="text-2xl font-bold uppercase tracking-tight text-foreground">All Accounts Ledger Summary</h1>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">Consolidated Ledger trial Balance Sheet</p>
             </div>
@@ -285,22 +285,24 @@ export const GeneralLedgerManager = () => {
           </div>
 
           {/* Consolidated Summary */}
-          <div className="grid grid-cols-4 gap-4 mb-8 bg-muted p-4 border rounded-lg text-right">
-            <div className="text-left">
+          <div className="flex flex-col gap-4 mb-8 bg-muted p-4 border rounded-lg">
+            <div>
               <span className="text-[9px] text-muted-foreground font-bold uppercase block">Consolidated Report</span>
               <h3 className="text-sm font-bold text-foreground">All Ledger Accounts ({accounts.length})</h3>
             </div>
-            <div>
-              <span className="text-[9px] text-muted-foreground font-bold uppercase block">Grand Opening Bal</span>
-              <span className="text-xs font-bold text-foreground">Rs. {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-            </div>
-            <div>
-              <span className="text-[9px] text-muted-foreground font-bold uppercase block">Total Debits</span>
-              <span className="text-xs font-bold text-green-600">Rs. {totalDebited.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-            </div>
-            <div>
-              <span className="text-[9px] text-muted-foreground font-bold uppercase block">Total Credits</span>
-              <span className="text-xs font-bold text-red-600">Rs. {totalCredited.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            <div className="print-grid-summary text-right pt-2 border-t border-border">
+              <div>
+                <span className="text-[9px] text-muted-foreground font-bold uppercase block">Grand Opening Bal</span>
+                <span className="print-val text-xs font-bold text-foreground">Rs. {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div>
+                <span className="text-[9px] text-muted-foreground font-bold uppercase block">Total Debits</span>
+                <span className="print-val text-xs font-bold text-green-600">Rs. {totalDebited.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div>
+                <span className="text-[9px] text-muted-foreground font-bold uppercase block">Total Credits</span>
+                <span className="print-val text-xs font-bold text-red-600">Rs. {totalCredited.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
             </div>
           </div>
 
@@ -364,7 +366,7 @@ export const GeneralLedgerManager = () => {
         {/* Header */}
         <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
           <div className="flex flex-col">
-            <div className="mb-3 -ml-1"><h2 className="text-3xl font-black tracking-tighter bg-gradient-to-r from-[#E5484D] to-[#8a1c20] bg-clip-text text-transparent uppercase drop-shadow-sm leading-none">ZOHAIB MOTORS</h2><div className="h-1 w-12 bg-[#1C1F26] mt-1 rounded-full opacity-80"></div></div>
+            <div className="mb-3 -ml-1"><h2 className="print-brand-text text-3xl font-black tracking-tighter bg-gradient-to-r from-[#E5484D] to-[#8a1c20] bg-clip-text text-transparent uppercase drop-shadow-sm leading-none">ZOHAIB MOTORS</h2><div className="h-1 w-12 bg-[#1C1F26] mt-1 rounded-full opacity-80"></div></div>
             <h1 className="text-2xl font-bold uppercase tracking-tight text-foreground">General Ledger Statement</h1>
             <p className="text-xs text-muted-foreground font-medium mt-0.5">Account Activity Audit</p>
           </div>
@@ -386,28 +388,28 @@ export const GeneralLedgerManager = () => {
         </div>
 
         {/* Account Details & Summary */}
-        <div className="grid grid-cols-2 gap-8 mb-8 bg-muted p-4 border rounded-lg">
+        <div className="flex flex-col gap-4 mb-8 bg-muted p-4 border rounded-lg">
           <div>
             <span className="text-[10px] text-muted-foreground font-bold uppercase block">Account Detail</span>
             <h2 className="text-lg font-bold text-foreground">{selectedAccount.name}</h2>
             <span className="text-xs text-muted-foreground font-medium">Type: {selectedAccount.typeName}</span>
           </div>
-          <div className="grid grid-cols-4 gap-2 text-right">
+          <div className="print-grid-summary text-right pt-2 border-t border-border">
             <div>
               <span className="text-[9px] text-muted-foreground font-bold uppercase block">Opening Balance</span>
-              <span className="text-xs font-semibold text-muted-foreground">Rs. {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="print-val text-xs font-semibold text-muted-foreground">Rs. {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
             <div>
               <span className="text-[9px] text-muted-foreground font-bold uppercase block">Total Debited</span>
-              <span className="text-xs font-semibold text-green-600">Rs. {totalDebited.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="print-val text-xs font-semibold text-green-600">Rs. {totalDebited.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
             <div>
               <span className="text-[9px] text-muted-foreground font-bold uppercase block">Total Credited</span>
-              <span className="text-xs font-semibold text-red-600">Rs. {totalCredited.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="print-val text-xs font-semibold text-red-600">Rs. {totalCredited.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
             <div>
               <span className="text-[9px] text-muted-foreground font-bold uppercase block">Ledger Balance</span>
-              <span className="text-xs font-bold text-foreground">Rs. {closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="print-val text-xs font-bold text-foreground">Rs. {closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
         </div>
@@ -493,6 +495,19 @@ export const GeneralLedgerManager = () => {
           }
           .print-hide {
             display: none !important;
+          }
+          .print-brand-text {
+            background: none !important;
+            color: #B4232F !important;
+            -webkit-text-fill-color: #B4232F !important;
+          }
+          .print-grid-summary {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+            gap: 16px !important;
+          }
+          .print-val {
+            white-space: nowrap !important;
           }
         }
       `}</style>
