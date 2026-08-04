@@ -37,10 +37,11 @@ export async function GET(request: Request) {
     }
 
     // 3. Configure Nodemailer (Requires SMTP_USER and SMTP_PASS in .env.local)
+    const port = Number(process.env.SMTP_PORT) || 587;
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || "smtp.gmail.com",
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: false,
+      port: port,
+      secure: port === 465,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
