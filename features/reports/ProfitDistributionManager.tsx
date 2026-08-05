@@ -173,38 +173,44 @@ export const ProfitDistributionManager = () => {
           };
         });
 
-        // 2. Distribute to partner accounts
+        // 2a. Pre-fetch all partner account documents (READS)
+        const partnerDocs = [];
         for (const split of breakdown) {
           if (split.amount > 0) {
             const pRef = doc(db, "accounts", split.partnerId);
             const pSnap = await tx.get(pRef);
             if (pSnap.exists()) {
-              const prevBal = Number(pSnap.data().balance || 0);
-              const newBal = prevBal + split.amount; 
-              
-              tx.update(pRef, {
-                balance: newBal,
-                updatedAt: serverTimestamp()
-              });
-              
-              // Voucher
-              const vRef = doc(collection(db, "vouchers"));
-              tx.set(vRef, {
-                voucherNo: "PD-" + Math.floor(100000 + Math.random() * 900000),
-                date: new Date().toISOString().split("T")[0],
-                description: `Monthly Profit Distribution: ${monthName} · Partner: ${split.partnerName}`,
-                amount: split.amount,
-                debit: split.amount,
-                credit: split.amount,
-                counterAccountId: split.partnerId,
-                counterAccountName: split.partnerName,
-                counterType: "credit",
-                reference: selectedMonth,
-                createdAt: serverTimestamp(),
-                createdBy: user?.uid
-              });
+              partnerDocs.push({ pRef, pSnap, split });
             }
           }
+        }
+
+        // 2b. Distribute to partner accounts (WRITES)
+        for (const { pRef, pSnap, split } of partnerDocs) {
+          const prevBal = Number(pSnap.data().balance || 0);
+          const newBal = prevBal + split.amount; 
+          
+          tx.update(pRef, {
+            balance: newBal,
+            updatedAt: serverTimestamp()
+          });
+          
+          // Voucher
+          const vRef = doc(collection(db, "vouchers"));
+          tx.set(vRef, {
+            voucherNo: "PD-" + Math.floor(100000 + Math.random() * 900000),
+            date: new Date().toISOString().split("T")[0],
+            description: `Monthly Profit Distribution: ${monthName} · Partner: ${split.partnerName}`,
+            amount: split.amount,
+            debit: split.amount,
+            credit: split.amount,
+            counterAccountId: split.partnerId,
+            counterAccountName: split.partnerName,
+            counterType: "credit",
+            reference: selectedMonth,
+            createdAt: serverTimestamp(),
+            createdBy: user?.uid
+          });
         }
 
         // 3. Mark cars as distributed
