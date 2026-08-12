@@ -771,8 +771,8 @@ export const CashVoucherManager = () => {
 
       {/* Modal: Create Voucher */}
       <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if(!open) resetForm(); }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] p-0 flex flex-col">
+          <DialogHeader className="p-6 pb-2 shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <FileText className="text-foreground" size={20} />
               Generate Cash Voucher
@@ -782,22 +782,27 @@ export const CashVoucherManager = () => {
             </DialogDescription>
           </DialogHeader>
 
-          {message && (
-            <div className={`p-3 rounded text-xs font-medium flex items-center gap-2 ${message.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-              {!message.includes('Error') && <CheckCircle2 size={14} />}
-              {message}
-            </div>
-          )}
+          <div className="px-6 shrink-0">
+            {message && (
+              <div className={`p-3 rounded text-xs font-medium flex items-center gap-2 mb-2 ${message.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                {!message.includes('Error') && <CheckCircle2 size={14} />}
+                {message}
+              </div>
+            )}
+          </div>
 
           {filteredAccounts.length === 0 ? (
-            <div className="p-4 bg-muted rounded-lg text-amber-800 text-xs flex flex-col gap-2">
-              <div className="flex items-center gap-1.5 font-semibold">
-                <AlertTriangle size={16} /> No Cash Accounts Configured
+            <div className="p-6 pt-0 flex-1 overflow-y-auto">
+              <div className="p-4 bg-muted rounded-lg text-amber-800 text-xs flex flex-col gap-2">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <AlertTriangle size={16} /> No Cash Accounts Configured
+                </div>
+                <p>You must create an account associated with a "Cash" type (e.g. Cash in Hand) in the Accounts Manager before creating vouchers.</p>
               </div>
-              <p>You must create an account associated with a "Cash" type (e.g. Cash in Hand) in the Accounts Manager before creating vouchers.</p>
             </div>
           ) : (
-            <form onSubmit={handleCreateVoucher} className="space-y-4 py-2">
+            <form onSubmit={handleCreateVoucher} className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 pt-0 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground block">Voucher No (Auto)</label>
@@ -930,9 +935,11 @@ export const CashVoucherManager = () => {
                 <Input required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="e.g. Paid office utility bills, received from investor" />
               </div>
 
-              <DialogFooter className="pt-4 border-t">
+              </div>
+
+              <DialogFooter className="p-6 pt-4 border-t shrink-0 bg-background">
                 <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={loading}>Cancel</Button>
-                <Button type="submit" disabled={loading} className="bg-secondary hover:bg-secondary/90 text-white text-white">
+                <Button type="submit" disabled={loading} className="bg-secondary hover:bg-secondary/90 text-white">
                   {loading ? "Saving Voucher..." : "Generate Voucher"}
                 </Button>
               </DialogFooter>
@@ -1033,8 +1040,8 @@ export const CashVoucherManager = () => {
 
       {/* Modal: Edit Voucher */}
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if(!open) { setSelectedEditVoucher(null); setEditMessage(""); } }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] p-0 flex flex-col">
+          <DialogHeader className="p-6 pb-2 shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Edit className="text-foreground" size={20} />
               Edit Cash Voucher
@@ -1044,15 +1051,18 @@ export const CashVoucherManager = () => {
             </DialogDescription>
           </DialogHeader>
 
-          {editMessage && (
-            <div className={`p-3 rounded text-xs font-medium flex items-center gap-2 ${editMessage.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-              {!editMessage.includes('Error') && <CheckCircle2 size={14} />}
-              {editMessage}
-            </div>
-          )}
+          <div className="px-6 shrink-0">
+            {editMessage && (
+              <div className={`p-3 rounded text-xs font-medium flex items-center gap-2 mb-2 ${editMessage.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                {!editMessage.includes('Error') && <CheckCircle2 size={14} />}
+                {editMessage}
+              </div>
+            )}
+          </div>
 
           {selectedEditVoucher && (
-            <form onSubmit={handleUpdateVoucher} className="space-y-4 py-2">
+            <form onSubmit={handleUpdateVoucher} className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 pt-0 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground block">Voucher No</label>
@@ -1183,9 +1193,11 @@ export const CashVoucherManager = () => {
                 <Input required value={editFormData.description} onChange={e => setEditFormData({ ...editFormData, description: e.target.value })} placeholder="e.g. Paid office utility bills" />
               </div>
 
-              <DialogFooter className="pt-4 border-t">
+              </div>
+
+              <DialogFooter className="p-6 pt-4 border-t shrink-0 bg-background">
                 <Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setSelectedEditVoucher(null); setEditMessage(""); }} disabled={loading}>Cancel</Button>
-                <Button type="submit" disabled={loading} className="bg-secondary hover:bg-secondary/90 text-white text-white">
+                <Button type="submit" disabled={loading} className="bg-secondary hover:bg-secondary/90 text-white">
                   {loading ? "Updating Voucher..." : "Save Changes"}
                 </Button>
               </DialogFooter>

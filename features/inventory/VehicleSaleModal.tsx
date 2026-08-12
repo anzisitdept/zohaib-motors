@@ -35,15 +35,7 @@ export const VehicleSaleModal = ({ isOpen, onClose, vehicle }: VehicleSaleModalP
   const salePriceVal = parseFloat(salePrice) || 0;
   const profit = salePriceVal - capitalizedCost;
 
-  // Commission calculation
-  let commissionAmount = 0;
-  if (vehicle?.hasInvestor && vehicle?.commissionType && vehicle?.commissionValue) {
-    if (vehicle.commissionType === "Percentage") {
-      commissionAmount = profit > 0 ? (profit * vehicle.commissionValue) / 100 : 0;
-    } else {
-      commissionAmount = vehicle.commissionValue || 0;
-    }
-  }
+  const commissionAmount = 0;
 
   useEffect(() => {
     const q = query(collection(db, "accounts"), orderBy("name"));
@@ -90,23 +82,7 @@ export const VehicleSaleModal = ({ isOpen, onClose, vehicle }: VehicleSaleModalP
         const receivingAccName = receivingAccSnap.data().name;
         const receivingAccBal = receivingAccSnap.data().balance || 0;
 
-        // 3. Investor account (if applicable)
-        let investorAccRef = null;
-        let investorAccName = "";
-        let investorAccBal = 0;
-        if (vehicle.hasInvestor && vehicle.investorId && commissionAmount > 0) {
-          // Get investor's accountId from their profile
-          const investorDocRef = doc(db, "investors", vehicle.investorId);
-          const investorDocSnap = await tx.get(investorDocRef);
-          if (!investorDocSnap.exists()) throw new Error("Investor profile not found.");
-          const investorAccountId = investorDocSnap.data().accountId;
-          if (!investorAccountId) throw new Error("Investor does not have a linked ledger account. Please re-save the investor first.");
-          investorAccRef = doc(db, "accounts", investorAccountId);
-          const investorAccSnap = await tx.get(investorAccRef);
-          if (!investorAccSnap.exists()) throw new Error("Investor ledger account not found.");
-          investorAccName = investorAccSnap.data().name;
-          investorAccBal = investorAccSnap.data().balance || 0;
-        }
+
 
         // --- Now write all updates ---
 
@@ -178,43 +154,7 @@ export const VehicleSaleModal = ({ isOpen, onClose, vehicle }: VehicleSaleModalP
           });
         }
 
-        // E. Investor commission vouchers (if applicable)
-        if (investorAccRef && commissionAmount > 0) {
-          // Debit vehicle asset account (commission as cost)
-          tx.set(doc(collection(db, "vouchers")), {
-            voucherNo: "JV-" + Math.floor(100000 + Math.random() * 900000),
-            date: vDate,
-            accountId: vehicle.vehicleAccountId,
-            accountName: vehicleAccName,
-            type: "debit",
-            amount: commissionAmount,
-            description: `Investor commission (${vehicle.commissionType === "Percentage" ? vehicle.commissionValue + "% of profit" : "Fixed"}): ${vehicle.investorName}`,
-            vehicleId: vehicle.id,
-            createdAt: serverTimestamp(),
-            createdBy: user.uid
-          });
 
-          // Credit investor ledger account (commission payable to investor)
-          tx.set(doc(collection(db, "vouchers")), {
-            voucherNo: "JV-" + Math.floor(100000 + Math.random() * 900000),
-            date: vDate,
-            accountId: (investorAccRef as any).id,
-            accountName: investorAccName,
-            type: "credit",
-            amount: commissionAmount,
-            description: `Commission earned on sale of ${vehicle.brandName} ${vehicle.model} — ${vehicle.commissionType === "Percentage" ? vehicle.commissionValue + "% of profit Rs." + profit.toLocaleString() : "Fixed PKR " + commissionAmount.toLocaleString()}`,
-            vehicleId: vehicle.id,
-            createdAt: serverTimestamp(),
-            createdBy: user.uid
-          });
-
-          // Update investor account balance
-          tx.update(investorAccRef, {
-            balance: investorAccBal + commissionAmount,
-            updatedAt: serverTimestamp(),
-            updatedBy: user.uid
-          });
-        }
 
         // F. Update vehicle document as sold
         const carRef = doc(db, "cars", vehicle.id);
@@ -225,8 +165,8 @@ export const VehicleSaleModal = ({ isOpen, onClose, vehicle }: VehicleSaleModalP
           buyerName: buyerName.trim() || null,
           buyerPhone: buyerPhone.trim() || null,
           saleAccountId: receivingAccountId,
-          commissionPaid: commissionAmount,
-          netProfit: profit - commissionAmount,
+          commissionPaid: 0,
+          netProfit: profit,
           currentStatus: "SOLD",
           updatedAt: serverTimestamp()
         });
@@ -360,26 +300,18 @@ export const VehicleSaleModal = ({ isOpen, onClose, vehicle }: VehicleSaleModalP
                 <span className="font-semibold">− Rs. {capitalizedCost.toLocaleString()}</span>
               </div>
 
-              {vehicle?.hasInvestor && commissionAmount > 0 && (
-                <div className="flex justify-between text-sm text-primary bg-muted px-2 py-1 rounded-lg">
-                  <span className="flex items-center gap-1">
-                    <Users size={12} /> Investor Commission ({vehicle.investorName})
-                    {vehicle.commissionType === "Percentage" && ` · ${vehicle.commissionValue}%`}
-                  </span>
-                  <span className="font-semibold">− Rs. {commissionAmount.toLocaleString()}</span>
-                </div>
-              )}
+
 
               <div className={`flex justify-between text-sm font-bold border-t border-border pt-2 mt-1
-                ${(profit - commissionAmount) >= 0 ? "text-primary" : "text-red-700"}`}>
+                ${profit >= 0 ? "text-primary" : "text-red-700"}`}>
                 <span className="flex items-center gap-1">
-                  {(profit - commissionAmount) >= 0
+                  {profit >= 0
                     ? <TrendingUp size={14} />
                     : <TrendingDown size={14} />
                   }
-                  Net {(profit - commissionAmount) >= 0 ? "Profit" : "Loss"}
+                  Net {profit >= 0 ? "Profit" : "Loss"}
                 </span>
-                <span>Rs. {Math.abs(profit - commissionAmount).toLocaleString()}</span>
+                <span>Rs. {Math.abs(profit).toLocaleString()}</span>
               </div>
             </div>
           )}

@@ -30,7 +30,7 @@ export const PurchaseInvoiceManager = () => {
   // Data
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
-  const [investors, setInvestors] = useState<any[]>([]);
+
   const [clients, setClients] = useState<any[]>([]);
 
   // Selection
@@ -41,10 +41,7 @@ export const PurchaseInvoiceManager = () => {
   const [purchasePrice, setPurchasePrice] = useState("");
   const [isPaid, setIsPaid] = useState(false);
   const [paymentAccountId, setPaymentAccountId] = useState("");
-  const [hasInvestor, setHasInvestor] = useState(false);
-  const [investorId, setInvestorId] = useState("");
-  const [commissionType, setCommissionType] = useState<"Fixed" | "Percentage">("Percentage");
-  const [commissionValue, setCommissionValue] = useState("");
+
   const [selectedSellerId, setSelectedSellerId] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
 
@@ -82,13 +79,7 @@ export const PurchaseInvoiceManager = () => {
     return () => unsub();
   }, []);
 
-  useEffect(() => {
-    const q = query(collection(db, "investors"), orderBy("name"));
-    const unsub = onSnapshot(q, (snap) => {
-      setInvestors(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    return () => unsub();
-  }, []);
+
 
   useEffect(() => {
     const q = query(collection(db, "clients"), orderBy("name"));
@@ -107,26 +98,19 @@ export const PurchaseInvoiceManager = () => {
       setPurchasePrice(v.purchasePrice ? v.purchasePrice.toString() : "");
       setIsPaid(v.isPaid || false);
       setPaymentAccountId(v.paymentAccountId || "");
-      setHasInvestor(v.hasInvestor || false);
-      setInvestorId(v.investorId || "");
-      setCommissionType(v.commissionType || "Percentage");
-      setCommissionValue(v.commissionValue ? v.commissionValue.toString() : "");
+
       setSelectedSellerId(v.sellerClientId || "");
     } else {
       setPurchasePrice("");
       setIsPaid(false);
       setPaymentAccountId("");
-      setHasInvestor(false);
-      setInvestorId("");
-      setCommissionType("Percentage");
-      setCommissionValue("");
+
       setSelectedSellerId("");
     }
     setMessage("");
   }, [selectedVehicleId, vehicles]);
 
   const priceVal = parseFloat(purchasePrice) || 0;
-  const commVal = parseFloat(commissionValue) || 0;
 
   const handleCreateInvoice = async () => {
     if (!user || !selectedVehicle) return;
@@ -136,7 +120,7 @@ export const PurchaseInvoiceManager = () => {
     }
     if (priceVal <= 0) { setMessage("Error: Please enter a valid purchase price."); return; }
     if (isPaid && !paymentAccountId) { setMessage("Error: Please select a payment account."); return; }
-    if (hasInvestor && !investorId) { setMessage("Error: Please select an investor."); return; }
+
 
     setLoading(true);
     setMessage("");
@@ -353,11 +337,11 @@ export const PurchaseInvoiceManager = () => {
           sellerClientId: selectedSellerId || null,
           sellerClientName: sellerClient?.name || "",
           sellerClientPhone: sellerClient?.phone || "",
-          hasInvestor,
-          investorId: hasInvestor ? investorId : null,
-          investorName: hasInvestor ? (investors.find(i => i.id === investorId)?.name || "") : null,
-          commissionType: hasInvestor ? commissionType : null,
-          commissionValue: hasInvestor ? commVal : 0,
+          hasInvestor: false,
+          investorId: null,
+          investorName: null,
+          commissionType: null,
+          commissionValue: 0,
           vehicleAccountId,
           capitalizedCost: priceVal,
           totalExpenses: selectedVehicle.totalExpenses || 0,
@@ -606,78 +590,6 @@ export const PurchaseInvoiceManager = () => {
                 </div>
               )}
 
-              {/* Investor Toggle */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-4 p-3.5 bg-muted rounded-xl border border-border">
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={hasInvestor}
-                      onChange={e => setHasInvestor(e.target.checked)}
-                    />
-                    <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
-                    <span className="ml-3 text-sm font-semibold text-foreground flex items-center gap-1.5">
-                      <Users size={14} /> Investor Involved
-                    </span>
-                  </label>
-                </div>
-
-                {hasInvestor && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pl-2">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground">Investor *</label>
-                      <SearchSelector
-                        items={investors}
-                        value={investorId}
-                        onChange={setInvestorId}
-                        placeholder="Select investor..."
-                        searchPlaceholder="Search investor..."
-                        getSearchFields={(inv) => [inv.name, inv.phone]}
-                        itemKey={(inv) => inv.id}
-                        dropdownWidthClassName="w-[300px]"
-                        renderTrigger={(selected) =>
-                          selected ? (
-                            <span>{selected.name}</span>
-                          ) : (
-                            <span className="text-muted-foreground">Select investor...</span>
-                          )
-                        }
-                        renderItem={(inv) => (
-                          <div className="flex flex-col text-left">
-                            <span className="font-semibold text-foreground">{inv.name}</span>
-                            {inv.phone && <span className="text-xs text-muted-foreground font-mono mt-0.5">{inv.phone}</span>}
-                          </div>
-                        )}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground">Commission Type</label>
-                      <Select value={commissionType} onValueChange={v => setCommissionType(v as "Fixed" | "Percentage")}>
-                        <SelectTrigger className="bg-card h-10">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Percentage">Percentage (%)</SelectItem>
-                          <SelectItem value="Fixed">Fixed Amount</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground">
-                        Commission {commissionType === "Percentage" ? "(%)" : "(PKR)"}
-                      </label>
-                      <Input
-                        type="number"
-                        placeholder={commissionType === "Percentage" ? "e.g. 10" : "e.g. 50000"}
-                        value={commissionValue}
-                        onChange={e => setCommissionValue(e.target.value)}
-                        className="h-10"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {/* Summary Preview */}
               {priceVal > 0 && (
@@ -707,14 +619,7 @@ export const PurchaseInvoiceManager = () => {
                         </div>
                       ) : null;
                     })()}
-                    {hasInvestor && investorId && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Investor Commission</span>
-                        <span className="font-semibold text-primary">
-                          {commissionType === "Percentage" ? `${commVal}% of profit` : `Rs. ${commVal.toLocaleString()}`}
-                        </span>
-                      </div>
-                    )}
+
                   </div>
                 </div>
               )}
@@ -782,7 +687,7 @@ export const PurchaseInvoiceManager = () => {
                     <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Seller</th>
                     <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wide">Purchase Price</th>
                     <th className="px-4 py-3 text-center font-semibold text-xs uppercase tracking-wide">Payment</th>
-                    <th className="px-4 py-3 text-center font-semibold text-xs uppercase tracking-wide">Investor</th>
+
                     <th className="px-4 py-3 text-center font-semibold text-xs uppercase tracking-wide">Status</th>
                   </tr>
                 </thead>
@@ -842,22 +747,7 @@ export const PurchaseInvoiceManager = () => {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          {inv.hasInvestor ? (
-                            <div>
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-primary">
-                                <Users size={10} /> {inv.investorName || "Yes"}
-                              </span>
-                              <div className="text-xs text-muted-foreground mt-0.5">
-                                {inv.commissionType === "Percentage"
-                                  ? `${inv.commissionValue}%`
-                                  : `Rs. ${Number(inv.commissionValue || 0).toLocaleString()}`}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          )}
-                        </td>
+
                         <td className="px-4 py-3 text-center">
                           {inv.isSold ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground">

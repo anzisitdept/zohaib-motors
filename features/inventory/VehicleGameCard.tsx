@@ -496,14 +496,7 @@ export const VehicleGameCard = ({ vehicle, onEdit, onDelete, onPrintDetail, onPr
                                 <span className="text-muted-foreground">COST BASIS:</span>
                                 <span className="text-blue-800 font-bold">Rs. {Number(vehicle.capitalizedCost || vehicle.purchasePrice).toLocaleString()}</span>
                             </div>
-                            {vehicle.hasInvestor && vehicle.investorName && (
-                                <div className="flex justify-between border-t border-border pt-1 mt-1">
-                                    <span className="text-muted-foreground">INVESTOR:</span>
-                                    <span className="text-blue-500 font-medium">
-                                        {vehicle.investorName} · {vehicle.commissionType === "Percentage" ? vehicle.commissionValue + "%" : "Rs. " + Number(vehicle.commissionValue).toLocaleString()}
-                                    </span>
-                                </div>
-                            )}
+
                             {vehicle.isSold && (
                                 <>
                                     <div className="flex justify-between border-t border-border pt-1 mt-1">

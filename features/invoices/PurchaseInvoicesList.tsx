@@ -27,7 +27,7 @@ export function PurchaseInvoicesList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
   const [stockFilter, setStockFilter] = useState("ALL");
-  const [investorFilter, setInvestorFilter] = useState("ALL");
+
 
   useEffect(() => {
     const q = query(collection(db, "cars"), orderBy("createdAt", "desc"));
@@ -64,14 +64,9 @@ export function PurchaseInvoicesList() {
         (stockFilter === "SOLD" && inv.isSold) ||
         (stockFilter === "INSTOCK" && !inv.isSold);
 
-      // 4. Investor Involvement
-      const matchesInvestor = investorFilter === "ALL" ||
-        (investorFilter === "YES" && inv.hasInvestor) ||
-        (investorFilter === "NO" && !inv.hasInvestor);
-
-      return matchesSearch && matchesPayment && matchesStock && matchesInvestor;
+      return matchesSearch && matchesPayment && matchesStock;
     });
-  }, [invoices, searchTerm, paymentFilter, stockFilter, investorFilter]);
+  }, [invoices, searchTerm, paymentFilter, stockFilter]);
 
   // Statistics Summary
   const stats = useMemo(() => {
@@ -118,10 +113,10 @@ export function PurchaseInvoicesList() {
     setSearchTerm("");
     setPaymentFilter("ALL");
     setStockFilter("ALL");
-    setInvestorFilter("ALL");
+
   };
 
-  const hasActiveFilters = searchTerm || paymentFilter !== "ALL" || stockFilter !== "ALL" || investorFilter !== "ALL";
+  const hasActiveFilters = searchTerm || paymentFilter !== "ALL" || stockFilter !== "ALL";
 
   return (
     <div className="space-y-6">
@@ -239,17 +234,7 @@ export function PurchaseInvoicesList() {
                 </SelectContent>
               </Select>
 
-              {/* Investor Filter */}
-              <Select value={investorFilter} onValueChange={setInvestorFilter}>
-                <SelectTrigger className="w-[140px] h-10 bg-card text-xs border-border shadow-sm">
-                  <SelectValue placeholder="Investor involvement" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Investors</SelectItem>
-                  <SelectItem value="YES">Investor Involved</SelectItem>
-                  <SelectItem value="NO">No Investor</SelectItem>
-                </SelectContent>
-              </Select>
+
 
               {/* Reset Button */}
               {hasActiveFilters && (
@@ -294,7 +279,7 @@ export function PurchaseInvoicesList() {
                   <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Seller Details</th>
                   <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wide">Purchase Price</th>
                   <th className="px-4 py-3 text-center font-semibold text-xs uppercase tracking-wide">Payment</th>
-                  <th className="px-4 py-3 text-center font-semibold text-xs uppercase tracking-wide">Investor</th>
+
                   <th className="px-4 py-3 text-center font-semibold text-xs uppercase tracking-wide">Stock Status</th>
                 </tr>
               </thead>
@@ -344,22 +329,7 @@ export function PurchaseInvoicesList() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3.5 text-center">
-                      {inv.hasInvestor ? (
-                        <div>
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-primary">
-                            <Users size={10} /> {inv.investorName || "Investor"}
-                          </span>
-                          <div className="text-xs text-muted-foreground mt-1 font-medium">
-                            {inv.commissionType === "Percentage"
-                              ? `${inv.commissionValue}%`
-                              : `Rs. ${Number(inv.commissionValue || 0).toLocaleString()}`}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </td>
+
                     <td className="px-4 py-3.5 text-center">
                       {inv.isSold ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground">

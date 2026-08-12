@@ -62,18 +62,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/dashboard/general-ledger", label: "General Ledger", icon: BookOpen, permissionId: "general_ledger" },
     ],
   },
-  {
-    key: "file-tracking",
-    label: "File Tracking",
-    icon: Car,
-    color: "text-emerald-600",
-    bgColor: "bg-emerald-50",
-    items: [
-      { href: "/dashboard/inventory", label: "File Inventory", icon: Database, permissionId: "inventory" },
-      { href: "/dashboard/history", label: "Vehicle History", icon: History, permissionId: "inventory" },
-      { href: "/dashboard/delivery", label: "Delivery", icon: Truck, permissionId: "delivery" },
-    ],
-  },
+
   {
     key: "installments",
     label: "Installments",

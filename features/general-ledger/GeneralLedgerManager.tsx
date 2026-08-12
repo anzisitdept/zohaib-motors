@@ -14,7 +14,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { SearchSelector } from "@/components/ui/SearchSelector";
-import { BookOpen, Calendar, Printer, Search, ArrowUpRight, ArrowDownRight, Wallet, ArrowRight } from "lucide-react";
+import { BookOpen, Calendar, Printer, Search, ArrowUpRight, ArrowDownRight, Wallet, ArrowRight, Download } from "lucide-react";
 
 interface Account {
   id: string;
@@ -252,6 +252,43 @@ export const GeneralLedgerManager = () => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadCSV = () => {
+    if (!selectedAccountId) return;
+    
+    let csvContent = "data:text/csv;charset=utf-8,";
+    
+    if (selectedAccountId === "ALL") {
+      csvContent += "Account Name,Account Type,Opening Balance,Total Debit (+),Total Credit (-),Net Closing Balance\n";
+      
+      allAccountsData.forEach(item => {
+        csvContent += `"${item.account.name}","${item.account.typeName}",${item.openingBalance},${item.totalDebited},${item.totalCredited},${item.closingBalance}\n`;
+      });
+      
+      csvContent += `Grand Totals,,${openingBalance},${totalDebited},${totalCredited},${closingBalance}\n`;
+    } else {
+      csvContent += "Date,Voucher No,Description,Debit (+),Credit (-),Running Balance\n";
+      
+      if (filterMode === "range") {
+        csvContent += `"${fromDate || "-"}","SYS-OPB","Opening Balance Brought Forward",0,0,${openingBalance}\n`;
+      }
+      
+      singleAccountData?.entries.forEach(entry => {
+        csvContent += `"${entry.date}","${entry.voucherCode}","${entry.description.replace(/"/g, '""')}",${entry.debit},${entry.credit},${entry.balanceAfter}\n`;
+      });
+    }
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    const fileName = selectedAccount?.id === "ALL" 
+      ? `Ledger_All_Accounts_${fromDate || "Start"}_${toDate || "End"}.csv`
+      : `Ledger_${selectedAccount?.name.replace(/ /g, "_")}_${fromDate || "Start"}_${toDate || "End"}.csv`;
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const PrintableLedgerDoc = () => {
@@ -567,11 +604,18 @@ export const GeneralLedgerManager = () => {
             </>
           )}
 
-          <div className="w-full md:w-auto">
+          <div className="w-full md:w-auto flex gap-2">
+            <Button
+              onClick={handleDownloadCSV}
+              disabled={!selectedAccountId}
+              className="bg-secondary hover:bg-secondary/90 text-white shrink-0 gap-1.5 h-10 w-full md:w-auto"
+            >
+              <Download size={16} /> Download
+            </Button>
             <Button
               onClick={handlePrint}
               disabled={!selectedAccountId}
-              className="bg-secondary hover:bg-secondary/90 text-white text-white shrink-0 gap-1.5 h-10 w-full"
+              className="bg-secondary hover:bg-secondary/90 text-white shrink-0 gap-1.5 h-10 w-full md:w-auto"
             >
               <Printer size={16} /> Print Ledger
             </Button>
