@@ -8,11 +8,13 @@ import { Loader2, Calendar, DollarSign, CheckCircle2 } from "lucide-react";
 
 export const EditInstallmentPlanModal = ({ plan, open, onClose }: { plan: any, open: boolean, onClose: () => void }) => {
   const [schedule, setSchedule] = useState<any[]>([]);
+  const [clientPhone, setClientPhone] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (plan && plan.installmentSchedule) {
       setSchedule(JSON.parse(JSON.stringify(plan.installmentSchedule)));
+      setClientPhone(plan.clientPhone || "");
     }
   }, [plan]);
 
@@ -32,13 +34,23 @@ export const EditInstallmentPlanModal = ({ plan, open, onClose }: { plan: any, o
     try {
       const planRef = doc(db, "installmentPlans", plan.id);
       
-      // Recalculate total monthly installment amount if it changed
-      const unpaid = schedule.filter(s => !s.paid);
-      
+      // Update schedule and phone
       await updateDoc(planRef, {
         installmentSchedule: schedule,
+        clientPhone: clientPhone.trim() || null,
         updatedAt: serverTimestamp()
       });
+
+      // Find first unpaid installment to pass amount to voucher
+      const nextUnpaidIdx = schedule.findIndex(s => !s.paid);
+      if (nextUnpaidIdx !== -1) {
+        const inst = schedule[nextUnpaidIdx];
+        const descToPass = `Installment Payment from ${plan.clientName} for Vehicle ${plan.vehicleName || plan.vehicleFileId}`;
+        onClose();
+        window.location.href = `/dashboard/cash-voucher?amount=${inst.amount}&desc=${encodeURIComponent(descToPass)}&counterId=${plan.clientId || ''}&planId=${plan.id}&installmentIdx=${nextUnpaidIdx}`;
+        return;
+      }
+
       onClose();
     } catch (err: any) {
       console.error(err);
@@ -54,14 +66,27 @@ export const EditInstallmentPlanModal = ({ plan, open, onClose }: { plan: any, o
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Edit Installment Schedule</DialogTitle>
+          <DialogTitle>Edit Installment Plan</DialogTitle>
           <DialogDescription>
-            Modify the due dates or amounts for {plan.clientName}'s unpaid installments.
+            Modify contact details, due dates, or amounts for {plan.clientName}'s unpaid installments.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-2 mt-4">
-          {schedule.map((inst, idx) => (
+        <div className="space-y-4 mt-4">
+          <div className="space-y-1.5 px-1">
+            <label className="text-xs font-semibold text-muted-foreground">Client Phone (For WhatsApp Reminders)</label>
+            <Input 
+              type="tel" 
+              value={clientPhone} 
+              onChange={e => setClientPhone(e.target.value)} 
+              placeholder="03001234567" 
+              className="h-10"
+            />
+          </div>
+
+          <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-2 border-t pt-4">
+            <h5 className="text-sm font-bold text-foreground">Installment Schedule</h5>
+            {schedule.map((inst, idx) => (
             <div key={inst.id} className={`p-3 rounded-lg border flex flex-col md:flex-row gap-3 ${inst.paid ? "bg-emerald-50/50 border-emerald-100 opacity-60 pointer-events-none" : "bg-card border-border"}`}>
               <div className="flex-1 space-y-1.5">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
@@ -93,7 +118,8 @@ export const EditInstallmentPlanModal = ({ plan, open, onClose }: { plan: any, o
                 </div>
               )}
             </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">

@@ -5,10 +5,11 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CreditCard, Search, Calendar, ChevronRight, Bell, History, Edit2, Trash2 } from "lucide-react";
+import { CreditCard, Search, Calendar, ChevronRight, Bell, History, Edit2, Trash2, Printer, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RecordPaymentModal } from "./RecordPaymentModal";
 import { EditInstallmentPlanModal } from "./EditInstallmentPlanModal";
+import { PlanDetailsModal } from "./PlanDetailsModal";
 import Link from "next/link";
 
 export const InstallmentPlansManager = () => {
@@ -22,6 +23,9 @@ export const InstallmentPlansManager = () => {
 
   // For the Edit Plan modal
   const [editPlan, setEditPlan] = useState<any | null>(null);
+
+  // For the Plan Details modal
+  const [viewPlan, setViewPlan] = useState<any | null>(null);
 
   useEffect(() => {
     // Fetch active/due_soon/overdue plans
@@ -198,6 +202,9 @@ export const InstallmentPlansManager = () => {
                         {getStatusPill(plan.status)}
                       </td>
                       <td className="px-4 py-3 text-right space-x-2">
+                        <Button variant="ghost" size="icon" onClick={() => setViewPlan(plan)} className="h-8 w-8 text-muted-foreground hover:text-primary" title="View Details">
+                          <Eye size={16} />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -212,6 +219,11 @@ export const InstallmentPlansManager = () => {
                         <Button variant="ghost" size="icon" onClick={() => handleCancelPlan(plan)} className="h-8 w-8 text-muted-foreground hover:text-red-600" title="Cancel Plan">
                           <Trash2 size={16} />
                         </Button>
+                        <Link href={`/print/installment/${plan.id}`} target="_blank">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" title="Print Report">
+                            <Printer size={16} />
+                          </Button>
+                        </Link>
                       </td>
                     </tr>
                   ))}
@@ -237,6 +249,15 @@ export const InstallmentPlansManager = () => {
           plan={editPlan}
           open={!!editPlan}
           onClose={() => setEditPlan(null)}
+        />
+      )}
+
+      {/* Plan Details Modal */}
+      {viewPlan && (
+        <PlanDetailsModal
+          plan={viewPlan}
+          open={!!viewPlan}
+          onClose={() => setViewPlan(null)}
         />
       )}
     </div>

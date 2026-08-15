@@ -23,6 +23,8 @@ export const ProfitDistributionManager = () => {
   // Split logic
   const [splitMethod, setSplitMethod] = useState<"percentage" | "amount">("percentage");
   const [splits, setSplits] = useState<{ partnerId: string; partnerName: string; value: string }[]>([]);
+  const [pulledExpenses, setPulledExpenses] = useState<{ name: string; amount: number; date: string }[]>([]);
+  const [pulledRefreshments, setPulledRefreshments] = useState<{ name: string; amount: number; date: string }[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
@@ -74,7 +76,77 @@ export const ProfitDistributionManager = () => {
 
   useEffect(() => {
     setSplits([]);
+    setPulledExpenses([]);
+    setPulledRefreshments([]);
   }, [selectedMonth]);
+
+  // Pull ledger data when month is selected
+  useEffect(() => {
+    if (!selectedMonth || partners.length === 0) return;
+
+    const fetchLedgerData = async () => {
+      try {
+        const expenseAccs = new Set(partners.filter(a => (a.typeName || "").toLowerCase().includes("expense")).map(a => a.id));
+        const refreshAccs = new Set(partners.filter(a => (a.typeName || "").toLowerCase().includes("refreshment")).map(a => a.id));
+
+        if (expenseAccs.size === 0 && refreshAccs.size === 0) {
+          setPulledExpenses([]);
+          setPulledRefreshments([]);
+          return;
+        }
+
+        const [y, m] = selectedMonth.split('-');
+        const startStr = `${y}-${m}-01`;
+        const endStr = `${y}-${m}-31`;
+
+        const exps: { name: string; amount: number; date: string }[] = [];
+        const refs: { name: string; amount: number; date: string }[] = [];
+
+        const { getDocs, where } = await import("firebase/firestore");
+
+        // Vouchers
+        const qV = query(collection(db, "vouchers"), where("date", ">=", startStr), where("date", "<=", endStr));
+        const snapV = await getDocs(qV);
+        snapV.forEach(d => {
+          const v = d.data();
+          // Check Cash Leg
+          if (expenseAccs.has(v.cashAccountId || v.accountId) && (v.cashType || v.type) === "debit") {
+            exps.push({ name: `${v.cashAccountName || v.accountName} (CV-${v.voucherNo})`, amount: v.amount, date: v.date });
+          } else if (refreshAccs.has(v.cashAccountId || v.accountId) && (v.cashType || v.type) === "debit") {
+            refs.push({ name: `${v.cashAccountName || v.accountName} (CV-${v.voucherNo})`, amount: v.amount, date: v.date });
+          }
+          // Check Counter Leg
+          if (v.counterAccountId) {
+            if (expenseAccs.has(v.counterAccountId) && v.counterType === "debit") {
+              exps.push({ name: `${v.counterAccountName} (CV-${v.voucherNo})`, amount: v.amount, date: v.date });
+            } else if (refreshAccs.has(v.counterAccountId) && v.counterType === "debit") {
+              refs.push({ name: `${v.counterAccountName} (CV-${v.voucherNo})`, amount: v.amount, date: v.date });
+            }
+          }
+        });
+
+        // General Vouchers
+        const qG = query(collection(db, "general-vouchers"), where("date", ">=", startStr), where("date", "<=", endStr));
+        const snapG = await getDocs(qG);
+        snapG.forEach(d => {
+          const v = d.data();
+          // toAccountId = Destination (debit)
+          if (expenseAccs.has(v.toAccountId)) {
+            exps.push({ name: `${v.toAccountName} (JV-${v.voucherNo})`, amount: v.amount, date: v.date });
+          } else if (refreshAccs.has(v.toAccountId)) {
+            refs.push({ name: `${v.toAccountName} (JV-${v.voucherNo})`, amount: v.amount, date: v.date });
+          }
+        });
+
+        setPulledExpenses(exps);
+        setPulledRefreshments(refs);
+      } catch (err) {
+        console.error("Failed to fetch ledger data", err);
+      }
+    };
+
+    fetchLedgerData();
+  }, [selectedMonth, partners]);
 
   const selectedCars = selectedMonth ? carsByMonth[selectedMonth] || [] : [];
   
@@ -83,10 +155,15 @@ export const ProfitDistributionManager = () => {
   const totalCOGS = selectedCars.reduce((sum, c) => sum + Number(c.capitalizedCost || 0), 0);
   const totalCommission = selectedCars.reduce((sum, c) => sum + Number(c.commissionPaid || 0), 0);
   
-  const totalNetProfit = selectedCars.reduce((sum, c) => {
+  const grossVehicleProfit = selectedCars.reduce((sum, c) => {
     const carProfit = Number(c.netProfit ?? (Number(c.salePrice || 0) - Number(c.capitalizedCost || 0) - Number(c.commissionPaid || 0)));
     return sum + carProfit;
   }, 0);
+
+  const totalExpensesAmount = pulledExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalRefreshmentsAmount = pulledRefreshments.reduce((sum, r) => sum + r.amount, 0);
+  
+  const netDistributableProfit = grossVehicleProfit - totalExpensesAmount - totalRefreshmentsAmount;
 
   const formatMonthName = (YYYYMM: string) => {
     if (!YYYYMM) return "";
@@ -125,7 +202,7 @@ export const ProfitDistributionManager = () => {
       const evenPct = (100 / count).toFixed(2);
       setSplits(splits.map(s => ({ ...s, value: evenPct })));
     } else {
-      const evenAmt = (totalNetProfit / count).toFixed(0);
+      const evenAmt = (netDistributableProfit / count).toFixed(0);
       setSplits(splits.map(s => ({ ...s, value: evenAmt })));
     }
   };
@@ -135,7 +212,7 @@ export const ProfitDistributionManager = () => {
   splits.forEach(s => {
     const val = Number(s.value) || 0;
     if (splitMethod === "percentage") {
-      totalAllocated += (totalNetProfit * val) / 100;
+      totalAllocated += (netDistributableProfit * val) / 100;
     } else {
       totalAllocated += val;
     }
@@ -143,7 +220,7 @@ export const ProfitDistributionManager = () => {
   
   const isBalanced = splitMethod === "percentage" 
     ? Math.abs(splits.reduce((sum, s) => sum + (Number(s.value) || 0), 0) - 100) < 0.1
-    : Math.abs(totalAllocated - totalNetProfit) < 1;
+    : Math.abs(totalAllocated - netDistributableProfit) < 1;
 
   const handlePostDistribution = async () => {
     if (!selectedMonth || selectedCars.length === 0) return;
@@ -164,11 +241,11 @@ export const ProfitDistributionManager = () => {
         // 1. Prepare breakdown
         const breakdown = splits.map(s => {
           const val = Number(s.value);
-          const amount = splitMethod === "percentage" ? (totalNetProfit * val) / 100 : val;
+          const amount = splitMethod === "percentage" ? (netDistributableProfit * val) / 100 : val;
           return {
             partnerId: s.partnerId,
             partnerName: s.partnerName,
-            percentage: splitMethod === "percentage" ? val : (val / totalNetProfit) * 100,
+            percentage: splitMethod === "percentage" ? val : (val / netDistributableProfit) * 100,
             amount: amount
           };
         });
@@ -231,7 +308,12 @@ export const ProfitDistributionManager = () => {
           revenue: totalRevenue,
           cogs: totalCOGS,
           commission: totalCommission,
-          netProfit: totalNetProfit,
+          grossProfit: grossVehicleProfit,
+          expenses: pulledExpenses,
+          refreshments: pulledRefreshments,
+          totalExpensesAmount,
+          totalRefreshmentsAmount,
+          netProfit: netDistributableProfit,
           breakdown: breakdown,
           createdAt: serverTimestamp(),
           createdBy: user?.uid
@@ -314,7 +396,7 @@ export const ProfitDistributionManager = () => {
 
                 {selectedMonth && (
                   <div className="mt-6 space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                       <div className="bg-muted p-4 rounded-xl border border-border">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Revenue</p>
                         <p className="text-lg font-semibold text-foreground">Rs. {totalRevenue.toLocaleString()}</p>
@@ -323,9 +405,13 @@ export const ProfitDistributionManager = () => {
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Total COGS</p>
                         <p className="text-lg font-semibold text-foreground">Rs. {totalCOGS.toLocaleString()}</p>
                       </div>
-                      <div className="bg-emerald-50 dark:bg-emerald-950/30 p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/50">
-                        <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">Total Net Profit</p>
-                        <p className="text-xl font-black text-emerald-700 dark:text-emerald-400">Rs. {totalNetProfit.toLocaleString()}</p>
+                      <div className="bg-muted p-4 rounded-xl border border-border">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Expenses</p>
+                        <p className="text-lg font-semibold text-red-600">-Rs. {totalExpensesAmount.toLocaleString()}</p>
+                      </div>
+                      <div className="bg-muted p-4 rounded-xl border border-border">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Refreshments</p>
+                        <p className="text-lg font-semibold text-orange-600">-Rs. {totalRefreshmentsAmount.toLocaleString()}</p>
                       </div>
                     </div>
                     
@@ -338,6 +424,52 @@ export const ProfitDistributionManager = () => {
                             </span>
                           ))}
                        </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-border space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Pulled Expenses */}
+                        <div className="border border-border rounded-lg p-3 bg-muted/30">
+                          <h4 className="font-bold text-foreground text-sm mb-3">Expenses ({pulledExpenses.length})</h4>
+                          <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                            {pulledExpenses.map((exp, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-xs">
+                                <div className="truncate pr-2">
+                                  <span className="font-medium">{exp.name}</span>
+                                  <span className="text-muted-foreground ml-1">({exp.date})</span>
+                                </div>
+                                <span className="font-bold text-red-600 whitespace-nowrap">Rs. {exp.amount.toLocaleString()}</span>
+                              </div>
+                            ))}
+                            {pulledExpenses.length === 0 && <div className="text-xs text-muted-foreground">No expenses found for this month.</div>}
+                          </div>
+                        </div>
+
+                        {/* Pulled Refreshments */}
+                        <div className="border border-border rounded-lg p-3 bg-muted/30">
+                          <h4 className="font-bold text-foreground text-sm mb-3">Refreshments ({pulledRefreshments.length})</h4>
+                          <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                            {pulledRefreshments.map((ref, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-xs">
+                                <div className="truncate pr-2">
+                                  <span className="font-medium">{ref.name}</span>
+                                  <span className="text-muted-foreground ml-1">({ref.date})</span>
+                                </div>
+                                <span className="font-bold text-orange-600 whitespace-nowrap">Rs. {ref.amount.toLocaleString()}</span>
+                              </div>
+                            ))}
+                            {pulledRefreshments.length === 0 && <div className="text-xs text-muted-foreground">No refreshments found for this month.</div>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-indigo-50 dark:bg-indigo-950/30 p-4 rounded-xl border border-indigo-200 dark:border-indigo-900/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                      <div>
+                        <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-0.5">Gross Vehicle Profit: Rs. {grossVehicleProfit.toLocaleString()}</p>
+                        <p className="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">Net Distributable Profit</p>
+                      </div>
+                      <p className="text-2xl font-black text-indigo-700 dark:text-indigo-400">Rs. {netDistributableProfit.toLocaleString()}</p>
                     </div>
 
                     <div className="pt-4 border-t border-border space-y-4">
@@ -419,8 +551,8 @@ export const ProfitDistributionManager = () => {
                   <>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Total Net Profit</span>
-                        <span className="font-bold text-foreground">Rs. {totalNetProfit.toLocaleString()}</span>
+                        <span className="text-muted-foreground">Net Distributable Profit</span>
+                        <span className="font-bold text-foreground">Rs. {netDistributableProfit.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Allocated</span>
@@ -428,8 +560,8 @@ export const ProfitDistributionManager = () => {
                       </div>
                       <div className="flex justify-between items-center text-sm border-t border-border pt-3">
                         <span className="font-bold text-foreground">Remaining</span>
-                        <span className={`font-black ${totalNetProfit - totalAllocated === 0 ? "text-emerald-500" : "text-red-500"}`}>
-                          Rs. {Math.abs(totalNetProfit - totalAllocated).toLocaleString()}
+                        <span className={`font-black ${netDistributableProfit - totalAllocated === 0 ? "text-emerald-500" : "text-red-500"}`}>
+                          Rs. {Math.abs(netDistributableProfit - totalAllocated).toLocaleString()}
                         </span>
                       </div>
                     </div>

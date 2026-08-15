@@ -34,6 +34,7 @@ export const InstallmentPlanForm = () => {
 
   // Email Notification Fields
   const [clientEmail, setClientEmail] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
 
   // UI
@@ -212,6 +213,7 @@ export const InstallmentPlanForm = () => {
           installmentSchedule: schedule,
           status: "active",
           clientEmail: clientEmail.trim() || null,
+          clientPhone: clientPhone.trim() || null,
           ownerEmail: ownerEmail.trim() || null,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
@@ -340,22 +342,27 @@ export const InstallmentPlanForm = () => {
                 </div>
               </div>
 
-              {/* Email Notifications Configuration */}
+              {/* Notifications Configuration */}
               <div className="md:col-span-2 p-5 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 rounded-xl space-y-4 mt-2">
                 <h5 className="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wide flex items-center gap-1.5">
-                  <Mail size={14} /> Automated Email Notifications
+                  <Mail size={14} /> Automated Notifications & Reminders
                 </h5>
-                <p className="text-xs text-muted-foreground mb-2">Configure email addresses to automatically receive reminders on each installment's due date.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <p className="text-xs text-muted-foreground mb-2">Configure contact details to send and receive reminders on each installment's due date.</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                    <div className="space-y-1.5">
-                     <label className="text-xs font-semibold text-foreground dark:text-slate-300">Client Email (For Reminders)</label>
+                     <label className="text-xs font-semibold text-foreground dark:text-slate-300">Client Email</label>
                      <Input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="client@example.com" className="h-10 bg-background" />
-                     <p className="text-[10px] text-muted-foreground">Client gets a reminder to pay the monthly installment.</p>
+                     <p className="text-[10px] text-muted-foreground">For email reminders.</p>
                    </div>
                    <div className="space-y-1.5">
-                     <label className="text-xs font-semibold text-foreground dark:text-slate-300">Owner/Admin Email (For Recovery)</label>
+                     <label className="text-xs font-semibold text-foreground dark:text-slate-300">Client Phone (WhatsApp)</label>
+                     <Input type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="03001234567" className="h-10 bg-background" />
+                     <p className="text-[10px] text-muted-foreground">For WhatsApp reminders.</p>
+                   </div>
+                   <div className="space-y-1.5">
+                     <label className="text-xs font-semibold text-foreground dark:text-slate-300">Owner/Admin Email</label>
                      <Input type="email" value={ownerEmail} onChange={e => setOwnerEmail(e.target.value)} placeholder="admin@zohaibmotors.com" className="h-10 bg-background" />
-                     <p className="text-[10px] text-muted-foreground">Owner gets an alert to recover the payment for this vehicle.</p>
+                     <p className="text-[10px] text-muted-foreground">For recovery alerts.</p>
                    </div>
                 </div>
               </div>

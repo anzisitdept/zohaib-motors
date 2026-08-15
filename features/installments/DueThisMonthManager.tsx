@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CreditCard, Search, Calendar, Bell, CheckCircle2, AlertTriangle, ListTodo } from "lucide-react";
+import { WhatsAppIcon } from "@/components/ui/WhatsAppIcon";
 import { cn } from "@/lib/utils";
 import { RecordPaymentModal } from "./RecordPaymentModal";
 
@@ -87,6 +88,25 @@ export const DueThisMonthManager = () => {
     );
   });
 
+  // Convert a phone number into the international format WhatsApp accepts (digits only, with country code)
+  const toWhatsAppNumber = (raw: string) => {
+    let digits = String(raw || "").replace(/[^\d]/g, "");
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    if (digits.startsWith("0")) digits = "92" + digits.slice(1); // local Pakistani number -> +92
+    else if (digits.startsWith("3") && digits.length === 10) digits = "92" + digits; // 3XXXXXXXXX -> +92
+    return digits;
+  };
+
+  const openWhatsAppChat = (item: any) => {
+    const number = toWhatsAppNumber(item.plan.clientPhone);
+    if (!number || number.length < 8) {
+      alert("Invalid phone number for WhatsApp. Please add a valid number to the plan.");
+      return;
+    }
+    const text = encodeURIComponent(`Hello ${item.clientName}, a reminder that your installment of Rs. ${Number(item.amount || 0).toLocaleString()} for ${item.vehicleName} is due on ${new Date(item.dueDate).toLocaleDateString()}.`);
+    window.open(`https://wa.me/${number}?text=${text}`, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -144,6 +164,9 @@ export const DueThisMonthManager = () => {
                       <td className="px-4 py-3">
                         <div className="font-semibold text-foreground">{item.clientName}</div>
                         <div className="text-xs text-muted-foreground">{item.vehicleName}</div>
+                        {item.plan.clientPhone && (
+                          <div className="text-xs text-muted-foreground mt-0.5">{item.plan.clientPhone}</div>
+                        )}
                       </td>
                       <td className="px-4 py-3 font-medium">
                         {item.installmentNo}
@@ -182,8 +205,15 @@ export const DueThisMonthManager = () => {
                         >
                           Record Payment
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" title="Send Reminder">
-                          <Bell size={16} />
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-[#25D366] hover:text-[#1DA851] hover:bg-green-50" 
+                          disabled={!item.plan.clientPhone}
+                          title={item.plan.clientPhone ? "Send WhatsApp Reminder" : "No phone number available"}
+                          onClick={() => openWhatsAppChat(item)}
+                        >
+                          <WhatsAppIcon size={18} />
                         </Button>
                       </td>
                     </tr>

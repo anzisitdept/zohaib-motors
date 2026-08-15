@@ -8,7 +8,7 @@ import {
   Car, CheckCircle2, AlertTriangle, TrendingUp, Activity, FileText,
   Printer, UserPlus, ArrowRight, Wallet, Banknote, Users, CreditCard,
   PieChart as PieChartIcon, BookOpen, ShoppingCart, Receipt, Package,
-  Landmark, ClipboardList, BadgeCheck, BarChart3
+  Landmark, ClipboardList, BadgeCheck, BarChart3, X
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
@@ -115,6 +115,8 @@ export default function DashboardPage() {
   const [vouchers, setVouchers] = useState<VoucherData[]>([]);
   const [activeMetric, setActiveMetric] = useState<MetricKey>("bank");
   const [loading, setLoading] = useState(true);
+  const [dueInstallmentsCount, setDueInstallmentsCount] = useState(0);
+  const [showDueBanner, setShowDueBanner] = useState(true);
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -135,6 +137,29 @@ export default function DashboardPage() {
 
     unsubs.push(onSnapshot(query(collection(db, "vouchers"), orderBy("date", "desc"), limit(500)), snap => {
       setVouchers(snap.docs.map(d => ({ id: d.id, ...d.data() } as VoucherData)));
+    }));
+
+    unsubs.push(onSnapshot(query(collection(db, "installmentPlans"), where("status", "in", ["active", "due_soon", "overdue"])), snap => {
+      let count = 0;
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      snap.docs.forEach(d => {
+        const plan = d.data();
+        if (plan.installmentSchedule) {
+          const hasDue = plan.installmentSchedule.some((inst: any) => {
+            if (!inst.paid && inst.dueDate) {
+              const dDate = new Date(inst.dueDate);
+              const isDueThisMonth = dDate.getMonth() === currentMonth && dDate.getFullYear() === currentYear;
+              const isOverdue = dDate.getTime() < now.getTime() && (dDate.getMonth() !== currentMonth || dDate.getFullYear() !== currentYear);
+              return isDueThisMonth || isOverdue;
+            }
+            return false;
+          });
+          if (hasDue) count++;
+        }
+      });
+      setDueInstallmentsCount(count);
     }));
 
     // Purchase inventory = cars collection where purchasePrice > 0 and !isSold
@@ -342,6 +367,23 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-10 pb-12 animate-in fade-in duration-500">
+
+      {showDueBanner && dueInstallmentsCount > 0 && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="text-amber-500" size={20} />
+            <p className="text-sm font-medium">You have <strong>{dueInstallmentsCount}</strong> installment plan(s) with dues or overdues this month.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/dashboard/installments/due">
+              <Button size="sm" variant="outline" className="bg-white hover:bg-amber-100 border-amber-300 text-amber-700 h-8">View Dues</Button>
+            </Link>
+            <Button variant="ghost" size="icon" onClick={() => setShowDueBanner(false)} className="h-8 w-8 hover:bg-amber-100 text-amber-700">
+              <X size={16} />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════
           FINANCIAL OVERVIEW

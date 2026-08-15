@@ -85,7 +85,9 @@ export const CashVoucherManager = () => {
     counterAccountId: "",
     description: "",
     debit: "",
-    credit: ""
+    credit: "",
+    planId: "",
+    installmentIdx: ""
   });
 
   // Grouped date and Edit state
@@ -126,6 +128,28 @@ export const CashVoucherManager = () => {
       unsubVouchers();
       unsubAccounts();
     };
+  }, []);
+
+  // Prefill from URL parameters
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const prefillAmount = searchParams.get("amount");
+    const prefillDesc = searchParams.get("desc");
+    const prefillCounter = searchParams.get("counterId");
+    const planId = searchParams.get("planId");
+    const installmentIdx = searchParams.get("installmentIdx");
+
+    if (prefillAmount || prefillDesc) {
+      setFormData(prev => ({
+        ...prev,
+        debit: prefillAmount || "",
+        description: prefillDesc || "",
+        counterAccountId: prefillCounter || "",
+        planId: planId || "",
+        installmentIdx: installmentIdx || ""
+      }));
+      setIsCreateOpen(true);
+    }
   }, []);
 
   // Keyboard Shortcuts
@@ -220,7 +244,9 @@ export const CashVoucherManager = () => {
       counterAccountId: "",
       description: "",
       debit: "",
-      credit: ""
+      credit: "",
+      planId: "",
+      installmentIdx: ""
     });
     setMessage("");
   };
@@ -402,6 +428,14 @@ export const CashVoucherManager = () => {
       await runTransaction(db, async (transaction) => {
         const cashRef = doc(db, "accounts", formData.cashAccountId);
         const counterRef = doc(db, "accounts", formData.counterAccountId);
+        
+        let planSnap: any = null;
+        let planRef: any = null;
+        if (formData.planId && formData.installmentIdx !== "") {
+          planRef = doc(db, "installmentPlans", formData.planId);
+          planSnap = await transaction.get(planRef);
+        }
+
         const cashSnap = await transaction.get(cashRef);
         const counterSnap = await transaction.get(counterRef);
 
@@ -431,6 +465,40 @@ export const CashVoucherManager = () => {
 
         transaction.update(cashRef, { balance: cashNewBal, updatedAt: serverTimestamp(), updatedBy: user.uid });
         transaction.update(counterRef, { balance: counterNewBal, updatedAt: serverTimestamp(), updatedBy: user.uid });
+
+        // If this voucher was generated from an installment plan, mark it as paid
+        if (planSnap && planSnap.exists() && planRef) {
+          const planData = planSnap.data();
+          const idx = parseInt(formData.installmentIdx);
+          const schedule = [...(planData.installmentSchedule || [])];
+            
+            if (schedule[idx] && !schedule[idx].paid) {
+              schedule[idx].paid = true;
+              schedule[idx].paidAt = formData.date;
+              
+              const newOutstandingBalance = Math.max(0, (planData.outstandingBalance || 0) - amount);
+              const isSettled = newOutstandingBalance === 0;
+              
+              transaction.update(planRef, {
+                installmentSchedule: schedule,
+                outstandingBalance: newOutstandingBalance,
+                status: isSettled ? "settled" : planData.status,
+                updatedAt: serverTimestamp()
+              });
+              
+              // Add to subcollection payments
+              const paymentRef = doc(collection(db, "installmentPlans", formData.planId, "payments"));
+              transaction.set(paymentRef, {
+                amount: amount,
+                paidAt: formData.date,
+                method: "cash",
+                receivingAccountId: formData.cashAccountId,
+                recordedBy: user.uid,
+                createdAt: serverTimestamp(),
+                voucherNo: nextVoucherNo
+              });
+            }
+        }
 
         const logRef = doc(collection(db, "logs"));
         transaction.set(logRef, {

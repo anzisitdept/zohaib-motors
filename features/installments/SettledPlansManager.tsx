@@ -7,18 +7,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Search, CheckCircle2, History, Printer, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PlanDetailsModal } from "./PlanDetailsModal";
 
 export const SettledPlansManager = () => {
   const { user } = useAuth();
   const [plans, setPlans] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"active" | "settled">("settled");
+
+  // For the Plan Details modal
+  const [viewPlan, setViewPlan] = useState<any | null>(null);
 
   useEffect(() => {
-    // We fetch where status == "settled"
+    // Fetch based on activeTab
+    const statuses = activeTab === "active" ? ["active", "due_soon", "overdue"] : ["settled"];
     const q = query(
       collection(db, "installmentPlans"),
-      where("status", "==", "settled")
+      where("status", "in", statuses)
     );
     
     const unsub = onSnapshot(q, (snap) => {
@@ -62,7 +68,7 @@ export const SettledPlansManager = () => {
     });
 
     return () => unsub();
-  }, []);
+  }, [activeTab]);
 
   const filteredPlans = plans.filter(p => {
     if (!searchTerm) return true;
@@ -81,9 +87,25 @@ export const SettledPlansManager = () => {
             <CheckCircle2 size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Settled Plans</h1>
-            <p className="text-sm text-muted-foreground">Historical archive of fully paid installment contracts</p>
+            <h1 className="text-2xl font-bold text-foreground">All Plans Archive</h1>
+            <p className="text-sm text-muted-foreground">Historical archive of installment contracts</p>
           </div>
+        </div>
+        
+        {/* Tabs */}
+        <div className="flex bg-muted p-1 rounded-lg border border-border w-fit">
+          <button 
+            onClick={() => setActiveTab("active")} 
+            className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === "active" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Active Plans
+          </button>
+          <button 
+            onClick={() => setActiveTab("settled")} 
+            className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === "settled" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Settled Plans
+          </button>
         </div>
       </div>
 
@@ -107,8 +129,10 @@ export const SettledPlansManager = () => {
           ) : filteredPlans.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 bg-card border-dashed border-border text-muted-foreground">
               <History size={48} className="mb-4 opacity-20" />
-              <p className="font-medium text-base text-foreground mb-1">No settled plans yet</p>
-              <p className="text-sm text-center max-w-md">Plans automatically move here once their outstanding balance reaches Rs. 0.</p>
+              <p className="font-medium text-base text-foreground mb-1">No {activeTab} plans yet</p>
+              <p className="text-sm text-center max-w-md">
+                {activeTab === "settled" ? "Plans automatically move here once their outstanding balance reaches Rs. 0." : "No active plans found."}
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -118,7 +142,7 @@ export const SettledPlansManager = () => {
                     <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Client & Vehicle</th>
                     <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wide">Total Amount</th>
                     <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wide">Inst. Paid</th>
-                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Settled On</th>
+                    <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">{activeTab === "settled" ? "Settled On" : "Last Paid"}</th>
                     <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wide">Status</th>
                     <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wide">Actions</th>
                   </tr>
@@ -146,17 +170,25 @@ export const SettledPlansManager = () => {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                          Settled
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                          plan.status === 'settled' 
+                            ? 'bg-slate-100 text-slate-700 border-slate-200' 
+                            : plan.status === 'overdue' 
+                            ? 'bg-red-50 text-red-700 border-red-200' 
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}>
+                          {plan.status === 'due_soon' ? 'Due Soon' : plan.status.charAt(0).toUpperCase() + plan.status.slice(1)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" title="View Details">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" title="View Details" onClick={() => setViewPlan(plan)}>
                           <Eye size={16} />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" title="Download History">
-                          <Printer size={16} />
-                        </Button>
+                        <a href={`/print/installment/${plan.id}`} target="_blank" rel="noreferrer">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" title="Print Report">
+                            <Printer size={16} />
+                          </Button>
+                        </a>
                       </td>
                     </tr>
                   ))}
@@ -166,6 +198,15 @@ export const SettledPlansManager = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Plan Details Modal */}
+      {viewPlan && (
+        <PlanDetailsModal
+          plan={viewPlan}
+          open={!!viewPlan}
+          onClose={() => setViewPlan(null)}
+        />
+      )}
     </div>
   );
 };

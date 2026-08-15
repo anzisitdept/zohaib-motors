@@ -586,15 +586,15 @@ export const RegistryForm = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground">Mfg. Year *</label>
-                <Input name="year" type="number" min="1900" max="2099" required placeholder="YYYY" />
+                <Input name="year" type="number" min="1900" required placeholder="YYYY" />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground">Model Year</label>
-                <Input name="modelYear" type="number" min="1900" max="2099" placeholder="YYYY" />
+                <Input name="modelYear" type="number" min="1900" placeholder="YYYY" />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground">Reg. Year</label>
-                <Input name="registrationYear" type="number" min="1900" max="2099" placeholder="YYYY" />
+                <Input name="registrationYear" type="number" min="1900" placeholder="YYYY" />
               </div>
             </div>
           </div>
