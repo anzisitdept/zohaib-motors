@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PieChart, Plus, CheckCircle2, History, Calendar, Calculator, AlertTriangle, Trash2 } from "lucide-react";
+import { PieChart, Plus, CheckCircle2, History, Calendar, Calculator, AlertTriangle, Trash2, Printer } from "lucide-react";
 import { SearchSelector } from "@/components/ui/SearchSelector";
 
 export const ProfitDistributionManager = () => {
@@ -23,8 +23,7 @@ export const ProfitDistributionManager = () => {
   // Split logic
   const [splitMethod, setSplitMethod] = useState<"percentage" | "amount">("percentage");
   const [splits, setSplits] = useState<{ partnerId: string; partnerName: string; value: string }[]>([]);
-  const [pulledExpenses, setPulledExpenses] = useState<{ name: string; amount: number; date: string }[]>([]);
-  const [pulledRefreshments, setPulledRefreshments] = useState<{ name: string; amount: number; date: string }[]>([]);
+  const [expenseSubtotals, setExpenseSubtotals] = useState<{ name: string; amount: number }[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
@@ -76,8 +75,7 @@ export const ProfitDistributionManager = () => {
 
   useEffect(() => {
     setSplits([]);
-    setPulledExpenses([]);
-    setPulledRefreshments([]);
+    setExpenseSubtotals([]);
   }, [selectedMonth]);
 
   // Pull ledger data when month is selected
@@ -86,12 +84,12 @@ export const ProfitDistributionManager = () => {
 
     const fetchLedgerData = async () => {
       try {
-        const expenseAccs = new Set(partners.filter(a => (a.typeName || "").toLowerCase().includes("expense")).map(a => a.id));
-        const refreshAccs = new Set(partners.filter(a => (a.typeName || "").toLowerCase().includes("refreshment")).map(a => a.id));
+        const expenseAccs = new Set(
+          partners.filter(a => (a.typeName || "").toLowerCase().includes("expense") || (a.typeName || "").toLowerCase().includes("refreshment")).map(a => a.id)
+        );
 
-        if (expenseAccs.size === 0 && refreshAccs.size === 0) {
-          setPulledExpenses([]);
-          setPulledRefreshments([]);
+        if (expenseAccs.size === 0) {
+          setExpenseSubtotals([]);
           return;
         }
 
@@ -99,8 +97,12 @@ export const ProfitDistributionManager = () => {
         const startStr = `${y}-${m}-01`;
         const endStr = `${y}-${m}-31`;
 
-        const exps: { name: string; amount: number; date: string }[] = [];
-        const refs: { name: string; amount: number; date: string }[] = [];
+        const expensesByAccount: Record<string, number> = {};
+
+        const addExpense = (accountName: string, amount: number) => {
+          if (!expensesByAccount[accountName]) expensesByAccount[accountName] = 0;
+          expensesByAccount[accountName] += amount;
+        };
 
         const { getDocs, where } = await import("firebase/firestore");
 
@@ -111,16 +113,12 @@ export const ProfitDistributionManager = () => {
           const v = d.data();
           // Check Cash Leg
           if (expenseAccs.has(v.cashAccountId || v.accountId) && (v.cashType || v.type) === "debit") {
-            exps.push({ name: `${v.cashAccountName || v.accountName} (CV-${v.voucherNo})`, amount: v.amount, date: v.date });
-          } else if (refreshAccs.has(v.cashAccountId || v.accountId) && (v.cashType || v.type) === "debit") {
-            refs.push({ name: `${v.cashAccountName || v.accountName} (CV-${v.voucherNo})`, amount: v.amount, date: v.date });
+            addExpense(v.cashAccountName || v.accountName || "Unknown Expense", v.amount);
           }
           // Check Counter Leg
           if (v.counterAccountId) {
             if (expenseAccs.has(v.counterAccountId) && v.counterType === "debit") {
-              exps.push({ name: `${v.counterAccountName} (CV-${v.voucherNo})`, amount: v.amount, date: v.date });
-            } else if (refreshAccs.has(v.counterAccountId) && v.counterType === "debit") {
-              refs.push({ name: `${v.counterAccountName} (CV-${v.voucherNo})`, amount: v.amount, date: v.date });
+              addExpense(v.counterAccountName || "Unknown Expense", v.amount);
             }
           }
         });
@@ -132,14 +130,12 @@ export const ProfitDistributionManager = () => {
           const v = d.data();
           // toAccountId = Destination (debit)
           if (expenseAccs.has(v.toAccountId)) {
-            exps.push({ name: `${v.toAccountName} (JV-${v.voucherNo})`, amount: v.amount, date: v.date });
-          } else if (refreshAccs.has(v.toAccountId)) {
-            refs.push({ name: `${v.toAccountName} (JV-${v.voucherNo})`, amount: v.amount, date: v.date });
+            addExpense(v.toAccountName || "Unknown Expense", v.amount);
           }
         });
 
-        setPulledExpenses(exps);
-        setPulledRefreshments(refs);
+        const subtotalList = Object.entries(expensesByAccount).map(([name, amount]) => ({ name, amount }));
+        setExpenseSubtotals(subtotalList);
       } catch (err) {
         console.error("Failed to fetch ledger data", err);
       }
@@ -160,10 +156,9 @@ export const ProfitDistributionManager = () => {
     return sum + carProfit;
   }, 0);
 
-  const totalExpensesAmount = pulledExpenses.reduce((sum, e) => sum + e.amount, 0);
-  const totalRefreshmentsAmount = pulledRefreshments.reduce((sum, r) => sum + r.amount, 0);
+  const totalExpensesAmount = expenseSubtotals.reduce((sum, e) => sum + e.amount, 0);
   
-  const netDistributableProfit = grossVehicleProfit - totalExpensesAmount - totalRefreshmentsAmount;
+  const netDistributableProfit = grossVehicleProfit - totalExpensesAmount;
 
   const formatMonthName = (YYYYMM: string) => {
     if (!YYYYMM) return "";
@@ -309,10 +304,8 @@ export const ProfitDistributionManager = () => {
           cogs: totalCOGS,
           commission: totalCommission,
           grossProfit: grossVehicleProfit,
-          expenses: pulledExpenses,
-          refreshments: pulledRefreshments,
+          expensesBreakdown: expenseSubtotals,
           totalExpensesAmount,
-          totalRefreshmentsAmount,
           netProfit: netDistributableProfit,
           breakdown: breakdown,
           createdAt: serverTimestamp(),
@@ -396,7 +389,7 @@ export const ProfitDistributionManager = () => {
 
                 {selectedMonth && (
                   <div className="mt-6 space-y-4">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="bg-muted p-4 rounded-xl border border-border">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Revenue</p>
                         <p className="text-lg font-semibold text-foreground">Rs. {totalRevenue.toLocaleString()}</p>
@@ -408,10 +401,6 @@ export const ProfitDistributionManager = () => {
                       <div className="bg-muted p-4 rounded-xl border border-border">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Expenses</p>
                         <p className="text-lg font-semibold text-red-600">-Rs. {totalExpensesAmount.toLocaleString()}</p>
-                      </div>
-                      <div className="bg-muted p-4 rounded-xl border border-border">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Refreshments</p>
-                        <p className="text-lg font-semibold text-orange-600">-Rs. {totalRefreshmentsAmount.toLocaleString()}</p>
                       </div>
                     </div>
                     
@@ -426,42 +415,16 @@ export const ProfitDistributionManager = () => {
                        </div>
                     </div>
 
-                    <div className="pt-4 border-t border-border space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Pulled Expenses */}
-                        <div className="border border-border rounded-lg p-3 bg-muted/30">
-                          <h4 className="font-bold text-foreground text-sm mb-3">Expenses ({pulledExpenses.length})</h4>
-                          <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                            {pulledExpenses.map((exp, idx) => (
-                              <div key={idx} className="flex justify-between items-center text-xs">
-                                <div className="truncate pr-2">
-                                  <span className="font-medium">{exp.name}</span>
-                                  <span className="text-muted-foreground ml-1">({exp.date})</span>
-                                </div>
-                                <span className="font-bold text-red-600 whitespace-nowrap">Rs. {exp.amount.toLocaleString()}</span>
-                              </div>
-                            ))}
-                            {pulledExpenses.length === 0 && <div className="text-xs text-muted-foreground">No expenses found for this month.</div>}
-                          </div>
-                        </div>
-
-                        {/* Pulled Refreshments */}
-                        <div className="border border-border rounded-lg p-3 bg-muted/30">
-                          <h4 className="font-bold text-foreground text-sm mb-3">Refreshments ({pulledRefreshments.length})</h4>
-                          <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                            {pulledRefreshments.map((ref, idx) => (
-                              <div key={idx} className="flex justify-between items-center text-xs">
-                                <div className="truncate pr-2">
-                                  <span className="font-medium">{ref.name}</span>
-                                  <span className="text-muted-foreground ml-1">({ref.date})</span>
-                                </div>
-                                <span className="font-bold text-orange-600 whitespace-nowrap">Rs. {ref.amount.toLocaleString()}</span>
-                              </div>
-                            ))}
-                            {pulledRefreshments.length === 0 && <div className="text-xs text-muted-foreground">No refreshments found for this month.</div>}
-                          </div>
-                        </div>
-                      </div>
+                    <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg p-3 mt-4">
+                       <p className="text-xs font-semibold mb-2 text-red-800 dark:text-red-400">Expenses ({expenseSubtotals.length}):</p>
+                       <div className="flex flex-wrap gap-2">
+                          {expenseSubtotals.map((exp, idx) => (
+                            <span key={idx} className="text-[10px] bg-white dark:bg-slate-800 text-red-700 dark:text-red-300 px-2 py-1 rounded shadow-sm border border-red-200 dark:border-red-900/50">
+                              {exp.name} (Rs. {exp.amount.toLocaleString()})
+                            </span>
+                          ))}
+                          {expenseSubtotals.length === 0 && <span className="text-xs text-muted-foreground">No expenses recorded.</span>}
+                       </div>
                     </div>
 
                     <div className="bg-indigo-50 dark:bg-indigo-950/30 p-4 rounded-xl border border-indigo-200 dark:border-indigo-900/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
@@ -582,6 +545,43 @@ export const ProfitDistributionManager = () => {
                     </Button>
                   </>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border shadow-sm">
+              <CardHeader className="border-b border-border pb-3">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Printer size={16} className="text-indigo-600" /> Generate Report
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Print the itemized monthly report.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 flex gap-2 flex-col">
+                <SearchSelector
+                  items={monthItems}
+                  value={selectedMonth}
+                  onChange={setSelectedMonth}
+                  placeholder="Select a month..."
+                  searchPlaceholder="Search month..."
+                  getSearchFields={m => [m.name, m.id]}
+                  itemKey={m => m.id}
+                  renderTrigger={selected => selected ? <span className="font-semibold text-sm truncate">{selected.name}</span> : <span className="text-muted-foreground text-sm">Select month...</span>}
+                  renderItem={m => (
+                    <div className="font-medium text-sm">{m.name}</div>
+                  )}
+                />
+                <Button 
+                  disabled={!selectedMonth}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                  onClick={() => {
+                    if (selectedMonth) {
+                      window.open(`/print/profit-distribution/${selectedMonth}`, "_blank");
+                    }
+                  }}
+                >
+                  Generate PDF
+                </Button>
               </CardContent>
             </Card>
 

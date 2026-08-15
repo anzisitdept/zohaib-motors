@@ -15,10 +15,8 @@ export const SettledPlansManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"active" | "settled">("settled");
-
   // For the Plan Details modal
   const [viewPlan, setViewPlan] = useState<any | null>(null);
-
   useEffect(() => {
     // Fetch based on activeTab
     const statuses = activeTab === "active" ? ["active", "due_soon", "overdue"] : ["settled"];

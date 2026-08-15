@@ -73,6 +73,9 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
         const accPrevBal = accSnap.data().balance || 0;
         const accNewBal = accPrevBal + amountVal;
 
+        // Generate Voucher No first so we can attach it to schedule
+        const generatedVoucherNo = "REC-" + Math.floor(100000 + Math.random() * 900000);
+
         // 3. Update Plan Schedule
         let remainingToApply = amountVal;
         let schedule = [...(planData.installmentSchedule || [])];
@@ -82,17 +85,13 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
         
         for (let i = 0; i < schedule.length; i++) {
           if (!schedule[i].paid && remainingToApply > 0) {
-            // Assume full payment per installment strictly for simplicity, or partial?
-            // The PRD implies marking an installment as paid. We'll mark as paid if amount >= installment amount.
-            // But if they pay exactly 1 installment, it matches. 
-            // If they pay multiple, it clears multiple.
             if (remainingToApply >= schedule[i].amount) {
               remainingToApply -= schedule[i].amount;
               schedule[i].paid = true;
               schedule[i].paidAt = new Date(date).toISOString();
+              schedule[i].voucherNo = generatedVoucherNo; // <-- Link voucher here
             } else {
-              // Partial payment (complex): for now, just apply it against the outstanding balance.
-              // We won't mark it fully paid unless amount is met. We can just leave it unpaid but track total outstanding.
+              // Partial payment handling skipped for simplicity
             }
           }
         }
@@ -115,6 +114,7 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
           method,
           receivingAccountId,
           recordedBy: user?.uid,
+          voucherNo: generatedVoucherNo, // Store here too
           createdAt: serverTimestamp()
         });
 
@@ -127,10 +127,9 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
         });
 
         // Log Voucher Entry (Receiving Account DEBIT, Client/Installment Receivable CREDIT)
-        // Here we just write a single entry to indicate money received. 
         const vRef = doc(collection(db, "vouchers"));
         tx.set(vRef, {
-          voucherNo: "REC-" + Math.floor(100000 + Math.random() * 900000),
+          voucherNo: generatedVoucherNo,
           date,
           description: `Installment Payment from ${planData.clientName || planData.clientId} for Vehicle ${planData.vehicleFileId}`,
           amount: amountVal,
@@ -141,7 +140,7 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
           cashType: "debit",
           cashPreviousBalance: accPrevBal,
           cashNewBalance: accNewBal,
-          counterAccountId: planData.clientId, // Client as counter account
+          counterAccountId: planData.clientId,
           counterAccountName: planData.clientName,
           counterType: "credit",
           counterPreviousBalance: planData.outstandingBalance,
