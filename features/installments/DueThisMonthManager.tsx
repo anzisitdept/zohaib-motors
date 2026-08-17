@@ -203,7 +203,7 @@ export const DueThisMonthManager = () => {
                           className="h-8 px-2 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
                           onClick={() => setPaymentPlan(item.plan)}
                         >
-                          Record Payment
+                          Make Payment
                         </Button>
                         <Button 
                           variant="ghost" 

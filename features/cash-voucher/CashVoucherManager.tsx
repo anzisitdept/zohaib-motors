@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, FormEvent, useMemo } from "react";
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, limit, getDocs, runTransaction } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ import {
   DialogFooter,
   DialogDescription
 } from "@/components/ui/dialog";
-import { Search, Plus, Trash2, Printer, X, CheckCircle2, AlertTriangle, FileText, Calendar, DollarSign, Eye, Edit } from "lucide-react";
+import { Search, Plus, Trash2, Printer, X, CheckCircle2, AlertTriangle, FileText, Calendar, DollarSign, Eye, Edit, Paperclip } from "lucide-react";
 
 interface Voucher {
   id: string;
@@ -52,6 +53,8 @@ interface Voucher {
   previousBalance: number;
   newBalance: number;
   createdAt: any;
+  attachmentUrl?: string;
+  attachmentName?: string;
 }
 
 interface Account {
@@ -87,8 +90,11 @@ export const CashVoucherManager = () => {
     debit: "",
     credit: "",
     planId: "",
-    installmentIdx: ""
+    installmentIdx: "",
+    attachmentUrl: "",
+    attachmentName: ""
   });
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
   // Grouped date and Edit state
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -101,8 +107,11 @@ export const CashVoucherManager = () => {
     counterAccountId: "",
     description: "",
     debit: "",
-    credit: ""
+    credit: "",
+    attachmentUrl: "",
+    attachmentName: ""
   });
+  const [editAttachmentFile, setEditAttachmentFile] = useState<File | null>(null);
 
   // Fetch Vouchers & Accounts
   useEffect(() => {
@@ -246,8 +255,11 @@ export const CashVoucherManager = () => {
       debit: "",
       credit: "",
       planId: "",
-      installmentIdx: ""
+      installmentIdx: "",
+      attachmentUrl: "",
+      attachmentName: ""
     });
+    setAttachmentFile(null);
     setMessage("");
   };
 
@@ -260,8 +272,11 @@ export const CashVoucherManager = () => {
       counterAccountId: voucher.counterAccountId || "",
       description: voucher.description,
       debit: cashType === 'debit' ? voucher.amount.toString() : "",
-      credit: cashType === 'credit' ? voucher.amount.toString() : ""
+      credit: cashType === 'credit' ? voucher.amount.toString() : "",
+      attachmentUrl: voucher.attachmentUrl || "",
+      attachmentName: voucher.attachmentName || ""
     });
+    setEditAttachmentFile(null);
     setEditMessage("");
     setIsEditOpen(true);
   };
@@ -336,6 +351,15 @@ export const CashVoucherManager = () => {
       const newCounterType: 'debit' | 'credit' = debitAmt > 0 ? 'credit' : 'debit';
       const newAmount = debitAmt > 0 ? debitAmt : creditAmt;
 
+      let attachUrl = editFormData.attachmentUrl;
+      let attachName = editFormData.attachmentName;
+      if (editAttachmentFile) {
+        const storageRef = ref(storage, `vouchers/cash/${Date.now()}_${editAttachmentFile.name}`);
+        const snapshot = await uploadBytes(storageRef, editAttachmentFile);
+        attachUrl = await getDownloadURL(snapshot.ref);
+        attachName = editAttachmentFile.name;
+      }
+
       await runTransaction(db, async (transaction) => {
         const voucherRef = doc(db, "vouchers", selectedEditVoucher.id);
         const voucherSnap = await transaction.get(voucherRef);
@@ -382,6 +406,7 @@ export const CashVoucherManager = () => {
           counterType: newCounterType, counterPreviousBalance: counterPrev, counterNewBalance: counterNew,
           accountId: newCashId, accountName: dataMap[newCashId]?.name || "",
           type: newCashType, previousBalance: cashPrev, newBalance: cashNew,
+          attachmentUrl: attachUrl, attachmentName: attachName,
           updatedAt: serverTimestamp(), updatedBy: user.uid
         });
 
@@ -425,6 +450,15 @@ export const CashVoucherManager = () => {
       const counterType: 'debit' | 'credit' = debitAmt > 0 ? 'credit' : 'debit';
       const amount = debitAmt > 0 ? debitAmt : creditAmt;
 
+      let attachUrl = formData.attachmentUrl;
+      let attachName = formData.attachmentName;
+      if (attachmentFile) {
+        const storageRef = ref(storage, `vouchers/cash/${Date.now()}_${attachmentFile.name}`);
+        const snapshot = await uploadBytes(storageRef, attachmentFile);
+        attachUrl = await getDownloadURL(snapshot.ref);
+        attachName = attachmentFile.name;
+      }
+
       await runTransaction(db, async (transaction) => {
         const cashRef = doc(db, "accounts", formData.cashAccountId);
         const counterRef = doc(db, "accounts", formData.counterAccountId);
@@ -460,6 +494,7 @@ export const CashVoucherManager = () => {
           // Backward compat
           accountId: formData.cashAccountId, accountName: cashSnap.data().name,
           type: cashType, previousBalance: cashPrevBal, newBalance: cashNewBal,
+          attachmentUrl: attachUrl, attachmentName: attachName,
           createdBy: user.uid, createdAt: serverTimestamp()
         });
 
@@ -1002,6 +1037,12 @@ export const CashVoucherManager = () => {
                 <label className="text-xs font-semibold text-muted-foreground block">Description / Notes *</label>
                 <Input required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="e.g. Paid office utility bills, received from investor" />
               </div>
+              
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1"><Paperclip size={12} /> Attachment (PDF/Image)</label>
+                <Input type="file" accept="image/*,.pdf" onChange={e => setAttachmentFile(e.target.files?.[0] || null)} />
+                <p className="text-[9px] text-muted-foreground">Optional: Attach a receipt or proof of payment.</p>
+              </div>
 
               </div>
 
@@ -1075,6 +1116,11 @@ export const CashVoucherManager = () => {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex justify-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        {voucher.attachmentUrl && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 p-0 text-blue-500" onClick={() => window.open(voucher.attachmentUrl, '_blank')} title="View Attachment">
+                            <Paperclip size={16} />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0 text-primary" onClick={() => setSelectedPrintVoucher(voucher)} title="Print Preview">
                           <Printer size={16} />
                         </Button>
@@ -1259,6 +1305,20 @@ export const CashVoucherManager = () => {
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-muted-foreground block">Description / Notes *</label>
                 <Input required value={editFormData.description} onChange={e => setEditFormData({ ...editFormData, description: e.target.value })} placeholder="e.g. Paid office utility bills" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1"><Paperclip size={12} /> Attachment (PDF/Image)</label>
+                {editFormData.attachmentUrl && (
+                  <div className="flex items-center gap-2 mb-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                    <Paperclip size={14} />
+                    <a href={editFormData.attachmentUrl} target="_blank" rel="noopener noreferrer" className="hover:underline truncate max-w-[200px]">
+                      {editFormData.attachmentName || "View Current Attachment"}
+                    </a>
+                  </div>
+                )}
+                <Input type="file" accept="image/*,.pdf" onChange={e => setEditAttachmentFile(e.target.files?.[0] || null)} />
+                <p className="text-[9px] text-muted-foreground">Optional: Select a new file to replace the current attachment.</p>
               </div>
 
               </div>

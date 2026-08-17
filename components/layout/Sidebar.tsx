@@ -52,7 +52,6 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/dashboard/accounts", label: "Manage Accounts", icon: Wallet, permissionId: "accounts" },
       { href: "/dashboard/account-types", label: "Account Types", icon: Layers, permissionId: "account_types" },
       { href: "/dashboard/clients", label: "Manage Clients", icon: UserCircle, permissionId: "clients" },
-      { href: "/dashboard/investors", label: "Manage Investors", icon: Users, permissionId: "investors" },
       { href: "/dashboard/purchase-invoice", label: "Purchase Invoice", icon: PackagePlus, permissionId: "purchase_invoice" },
       { href: "/dashboard/purchase-invoices", label: "Purchase Invoice List", icon: FileText, permissionId: "purchase_invoice" },
       { href: "/dashboard/sale-invoice", label: "Sale Invoice", icon: ShoppingCart, permissionId: "sale_invoice" },
@@ -70,7 +69,6 @@ const NAV_SECTIONS: NavSection[] = [
     color: "text-purple-600",
     bgColor: "bg-purple-50",
     items: [
-      { href: "/dashboard/installments/plans", label: "Installment Plans", icon: CreditCard, permissionId: "sale_invoice" },
       { href: "/dashboard/installments/due", label: "Due This Month", icon: Calendar, permissionId: "sale_invoice" },
       { href: "/dashboard/installments/settled", label: "Settled Plans", icon: CheckCircle2, permissionId: "sale_invoice" },
     ],

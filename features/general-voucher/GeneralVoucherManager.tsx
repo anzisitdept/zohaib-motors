@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, FormEvent, useMemo } from "react";
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, limit, getDocs, runTransaction } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ import {
   DialogFooter,
   DialogDescription
 } from "@/components/ui/dialog";
-import { Search, Plus, Trash2, Printer, X, CheckCircle2, AlertTriangle, FileText, Calendar, ArrowRightLeft } from "lucide-react";
+import { Search, Plus, Trash2, Printer, X, CheckCircle2, AlertTriangle, FileText, Calendar, ArrowRightLeft, Paperclip } from "lucide-react";
 
 interface GeneralVoucher {
   id: string;
@@ -39,6 +40,8 @@ interface GeneralVoucher {
   toPrevBalance: number;
   toNewBalance: number;
   createdAt: any;
+  attachmentUrl?: string;
+  attachmentName?: string;
 }
 
 interface Account {
@@ -69,8 +72,11 @@ export const GeneralVoucherManager = () => {
     fromAccountId: "",
     toAccountId: "",
     description: "",
-    amount: ""
+    amount: "",
+    attachmentUrl: "",
+    attachmentName: ""
   });
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
   // Fetch Vouchers & Accounts
   useEffect(() => {
@@ -146,8 +152,11 @@ export const GeneralVoucherManager = () => {
       fromAccountId: "",
       toAccountId: "",
       description: "",
-      amount: ""
+      amount: "",
+      attachmentUrl: "",
+      attachmentName: ""
     });
+    setAttachmentFile(null);
     setMessage("");
   };
 
@@ -174,6 +183,15 @@ export const GeneralVoucherManager = () => {
     setMessage("");
 
     try {
+      let attachUrl = formData.attachmentUrl;
+      let attachName = formData.attachmentName;
+      if (attachmentFile) {
+        const storageRef = ref(storage, `vouchers/general/${Date.now()}_${attachmentFile.name}`);
+        const snapshot = await uploadBytes(storageRef, attachmentFile);
+        attachUrl = await getDownloadURL(snapshot.ref);
+        attachName = attachmentFile.name;
+      }
+
       await runTransaction(db, async (transaction) => {
         const fromRef = doc(db, "accounts", formData.fromAccountId);
         const toRef = doc(db, "accounts", formData.toAccountId);
@@ -209,6 +227,8 @@ export const GeneralVoucherManager = () => {
           fromNewBalance: finalFromBal,
           toPrevBalance: currentToBal,
           toNewBalance: finalToBal,
+          attachmentUrl: attachUrl,
+          attachmentName: attachName,
           createdBy: user.uid,
           createdAt: serverTimestamp()
         });
@@ -494,6 +514,11 @@ export const GeneralVoucherManager = () => {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {voucher.attachmentUrl && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 p-0 text-blue-500" onClick={() => window.open(voucher.attachmentUrl, '_blank')} title="View Attachment">
+                            <Paperclip size={16} />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0 text-primary" onClick={() => setSelectedPrintVoucher(voucher)} title="Print Preview">
                           <Printer size={16} />
                         </Button>
@@ -676,6 +701,12 @@ export const GeneralVoucherManager = () => {
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-muted-foreground block">Description / Notes *</label>
                 <Input required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="e.g. Transferred cash to bank account, initial setup" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1"><Paperclip size={12} /> Attachment (PDF/Image)</label>
+                <Input type="file" accept="image/*,.pdf" onChange={e => setAttachmentFile(e.target.files?.[0] || null)} />
+                <p className="text-[9px] text-muted-foreground">Optional: Attach a receipt or proof of payment.</p>
               </div>
 
               <DialogFooter className="pt-4 border-t">

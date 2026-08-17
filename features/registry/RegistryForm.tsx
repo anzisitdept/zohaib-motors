@@ -68,13 +68,14 @@ export const RegistryForm = () => {
   const [registeredOwnerCnic, setRegisteredOwnerCnic] = useState("");
 
   // New Toggles & Fields
-  const [platesAvailable, setPlatesAvailable] = useState(true);
+  const [platesAvailable, setPlatesAvailable] = useState(false);
   const [plateUnavailableReason, setPlateUnavailableReason] = useState<"Not Issued from Excise" | "At Party's Hand">("Not Issued from Excise");
   const [vehicleSource, setVehicleSource] = useState<"Local" | "Imported">("Local");
   const [registrationReason, setRegistrationReason] = useState<"For Purchase" | "For Transfer" | "For Registration">("For Purchase");
 
-  const [bookAvailable, setBookAvailable] = useState(true);
-  const [fileAvailable, setFileAvailable] = useState(true);
+  const [bookAvailable, setBookAvailable] = useState(false);
+  const [fileAvailable, setFileAvailable] = useState(false);
+  const [papersAvailable, setPapersAvailable] = useState(false);
   const [keysCount, setKeysCount] = useState("1");
 
 
@@ -177,7 +178,13 @@ export const RegistryForm = () => {
       // Physical assets
       bookAvailable,
       fileAvailable,
+      papersAvailable,
       keysCount,
+      hasRegCard: bookAvailable,
+      hasPlates: platesAvailable,
+      hasReturnFile: fileAvailable,
+      hasPapers: papersAvailable,
+      hasKeys: parseInt(keysCount) > 0,
 
       // System Metadata
       currentStatus: "SHOWROOM",
@@ -299,11 +306,12 @@ export const RegistryForm = () => {
       setCurrentOwnerId("");
       setRegisteredOwnerName("");
       setRegisteredOwnerCnic("");
-      setPlatesAvailable(true);
+      setPlatesAvailable(false);
       setPlateUnavailableReason("Not Issued from Excise");
       setVehicleSource("Local");
-      setBookAvailable(true);
-      setFileAvailable(true);
+      setBookAvailable(false);
+      setFileAvailable(false);
+      setPapersAvailable(false);
       setKeysCount("1");
 
       // If registered for purchase, show CTA modal
@@ -692,7 +700,7 @@ export const RegistryForm = () => {
                   />
                   <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
                   <span className="ml-3 text-sm font-medium text-foreground">
-                    Reg. Book
+                    Reg Card
                   </span>
                 </label>
 
@@ -707,6 +715,20 @@ export const RegistryForm = () => {
                   <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
                   <span className="ml-3 text-sm font-medium text-foreground">
                     Return File
+                  </span>
+                </label>
+
+                {/* Papers Switch */}
+                <label className="relative inline-flex items-center cursor-pointer ml-4">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={papersAvailable}
+                    onChange={(e) => setPapersAvailable(e.target.checked)}
+                  />
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
+                  <span className="ml-3 text-sm font-medium text-foreground">
+                    Papers
                   </span>
                 </label>
 

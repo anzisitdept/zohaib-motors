@@ -112,6 +112,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // Auto logout on inactivity (15 minutes)
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (user) {
+        timeoutId = setTimeout(() => {
+          signOut(auth).catch(console.error);
+        }, 15 * 60 * 1000); // 15 minutes
+      }
+    };
+
+    const handleActivity = () => {
+      resetTimer();
+    };
+
+    const events = [
+      'mousemove', 'keydown', 'wheel', 'mousedown', 'touchstart', 'touchmove'
+    ];
+
+    if (user) {
+      resetTimer();
+      events.forEach((event) => {
+        window.addEventListener(event, handleActivity);
+      });
+    }
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      events.forEach((event) => {
+        window.removeEventListener(event, handleActivity);
+      });
+    };
+  }, [user]);
+
   const login = (email: string, password: string) => signInWithEmailAndPassword(auth, email, password);
   const logout = () => signOut(auth);
 

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import {
   collection, onSnapshot, query, orderBy, serverTimestamp,
-  doc, runTransaction
+  doc, runTransaction, updateDoc
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
@@ -16,10 +16,12 @@ import {
   CheckCircle2, Loader2, Car, DollarSign, Users, Wallet,
   FileText, Info, TrendingUp, TrendingDown, AlertTriangle, ShoppingBag
 } from "lucide-react";
+import { UserPlus, Eye, Trash2, Printer } from "lucide-react";
 import { SearchSelector } from "@/components/ui/SearchSelector";
 import { VehicleSelector } from "@/features/inventory/VehicleSelector";
 import { QuickAddClientDialog } from "./QuickAddClientDialog";
-import { UserPlus } from "lucide-react";
+import { VehicleDetailModal } from "@/features/inventory/VehicleDetailModal";
+import { SaleInvoicePrintModal } from "./SaleInvoicePrintModal";
 
 export const SaleInvoiceManager = () => {
   const { user } = useAuth();
@@ -38,10 +40,26 @@ export const SaleInvoiceManager = () => {
   const [buyerName, setBuyerName] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
   const [receivingAccountId, setReceivingAccountId] = useState("");
+  const [saleRegNo, setSaleRegNo] = useState("");
+  const [ownerName, setOwnerName] = useState("");
+  const [ownerFatherName, setOwnerFatherName] = useState("");
+  const [ownerCnic, setOwnerCnic] = useState("");
+
+  // Installment fields
+  const [isInstallment, setIsInstallment] = useState(false);
+  const [downPayment, setDownPayment] = useState("");
+  const [monthsPeriod, setMonthsPeriod] = useState("");
+  const [installmentEndDate, setInstallmentEndDate] = useState("");
+  const [monthlyDueAmount, setMonthlyDueAmount] = useState("");
+  const [remainingAmount, setRemainingAmount] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
 
   // Invoice history
   const [saleInvoices, setSaleInvoices] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewingVehicle, setViewingVehicle] = useState<any | null>(null);
+  const [printingInvoice, setPrintingInvoice] = useState<any | null>(null);
 
   // UI
   const [loading, setLoading] = useState(false);
@@ -75,8 +93,56 @@ export const SaleInvoiceManager = () => {
     setBuyerName("");
     setBuyerPhone("");
     setReceivingAccountId("");
+    setSaleRegNo(v?.registrationNumber || "");
+    setOwnerName("");
+    setOwnerFatherName("");
+    setOwnerCnic("");
+    setIsInstallment(false);
+    setDownPayment("");
+    setMonthsPeriod("");
+    setInstallmentEndDate("");
+    setMonthlyDueAmount("");
+    setRemainingAmount("");
+    setClientPhone("");
+    setClientEmail("");
     setMessage("");
   }, [selectedVehicleId, vehicles]);
+
+  // Recalculate remaining amount for installments
+  useEffect(() => {
+    if (isInstallment && salePrice) {
+      const down = parseFloat(downPayment) || 0;
+      const total = parseFloat(salePrice) || 0;
+      setRemainingAmount((total - down).toString());
+    }
+  }, [salePrice, downPayment, isInstallment]);
+
+  // Recalculate installment end date
+  useEffect(() => {
+    if (isInstallment && saleDate && monthsPeriod) {
+      const months = parseInt(monthsPeriod) || 0;
+      if (months > 0) {
+        const date = new Date(saleDate);
+        date.setMonth(date.getMonth() + months);
+        setInstallmentEndDate(date.toISOString().split("T")[0]);
+      } else {
+        setInstallmentEndDate("");
+      }
+    }
+  }, [saleDate, monthsPeriod, isInstallment]);
+
+  // Recalculate monthly due amount
+  useEffect(() => {
+    if (isInstallment && remainingAmount && monthsPeriod) {
+      const rem = parseFloat(remainingAmount) || 0;
+      const months = parseInt(monthsPeriod) || 0;
+      if (months > 0) {
+        setMonthlyDueAmount(Math.ceil(rem / months).toString());
+      } else {
+        setMonthlyDueAmount("");
+      }
+    }
+  }, [remainingAmount, monthsPeriod, isInstallment]);
 
   const salePriceVal = parseFloat(salePrice) || 0;
   const capitalizedCost = selectedVehicle?.capitalizedCost || selectedVehicle?.purchasePrice || 0;
@@ -87,7 +153,7 @@ export const SaleInvoiceManager = () => {
   const handleCreateSaleInvoice = async () => {
     if (!user || !selectedVehicle) return;
     if (salePriceVal <= 0) { setMessage("Error: Please enter a valid sale price."); return; }
-    if (!receivingAccountId) { setMessage("Error: Please select the receiving account."); return; }
+    if (!receivingAccountId) { setMessage("Error: Please select the Customer account."); return; }
     if (!selectedVehicle.vehicleAccountId) { setMessage("Error: This vehicle does not have a linked ledger account. Generate a Purchase Invoice first."); return; }
 
     setLoading(true);
@@ -137,11 +203,13 @@ export const SaleInvoiceManager = () => {
           updatedBy: user.uid
         });
 
-        // Single double-entry voucher: cash account (debit) \u2194 vehicle asset (credit)
+        const invoiceId = "SI-" + Math.floor(100000 + Math.random() * 900000);
+
+        // Single double-entry voucher: cash account (debit) ↔ vehicle asset (credit)
         tx.set(doc(collection(db, "vouchers")), {
-          voucherNo: "SI-" + Math.floor(100000 + Math.random() * 900000),
+          voucherNo: invoiceId,
           date: vDate,
-          description: `Sale Invoice: ${selectedVehicle.brandName} ${selectedVehicle.model} \u00b7 Chassis: ${selectedVehicle.chassisNumber?.slice(-4) || ""} \u00b7 Buyer: ${buyerName || "N/A"} \u00b7 Reg: ${selectedVehicle.registrationNumber || "Unregistered"}`,
+          description: `Sale Invoice: ${selectedVehicle.brandName} ${selectedVehicle.model} · Chassis: ${selectedVehicle.chassisNumber?.slice(-4) || ""} · Buyer: ${buyerName || "N/A"} · Reg: ${selectedVehicle.registrationNumber || "Unregistered"}`,
           amount: salePriceVal,
           debit: salePriceVal,
           credit: 0,
@@ -168,6 +236,9 @@ export const SaleInvoiceManager = () => {
           saleProfit,
           buyerName: buyerName.trim() || null,
           buyerPhone: buyerPhone.trim() || null,
+          ownerName: ownerName.trim() || null,
+          ownerFatherName: ownerFatherName.trim() || null,
+          ownerCnic: ownerCnic.trim() || null,
           createdAt: serverTimestamp(),
           createdBy: user.uid
         });
@@ -176,18 +247,73 @@ export const SaleInvoiceManager = () => {
 
         // G. Mark vehicle as sold
         const carRef = doc(db, "cars", selectedVehicle.id);
-        tx.update(carRef, {
+        const updateData: any = {
           isSold: true,
           salePrice: salePriceVal,
           saleDate: vDate,
           buyerName: buyerName.trim() || null,
           buyerPhone: buyerPhone.trim() || null,
+          ownerName: ownerName.trim() || null,
+          ownerFatherName: ownerFatherName.trim() || null,
+          ownerCnic: ownerCnic.trim() || null,
           saleAccountId: receivingAccountId,
           commissionPaid: 0,
           netProfit: profit,
           currentStatus: "SOLD",
           updatedAt: serverTimestamp()
-        });
+        };
+        
+        if (saleRegNo !== (selectedVehicle.registrationNumber || "")) {
+            updateData.registrationNumber = saleRegNo;
+        }
+
+        tx.update(carRef, updateData);
+
+        // I. Installment Plan
+        if (isInstallment) {
+            const dp = parseFloat(downPayment) || 0;
+            const remaining = parseFloat(remainingAmount) || 0;
+            const months = parseInt(monthsPeriod) || 0;
+            const monthlyDue = parseFloat(monthlyDueAmount) || 0;
+            
+            // --- SCHEDULE GENERATION ---
+            let schedule = [];
+            let currDate = new Date(vDate);
+            currDate.setMonth(currDate.getMonth() + 1); // first payment due next month
+            
+            for (let i = 1; i <= months; i++) {
+              schedule.push({
+                id: `inst-${i}`,
+                dueDate: currDate.toISOString().split("T")[0],
+                amount: monthlyDue,
+                paid: false
+              });
+              currDate.setMonth(currDate.getMonth() + 1);
+            }
+
+            const planRef = doc(collection(db, "installmentPlans"));
+            tx.set(planRef, {
+                clientId: receivingAccountId,
+                clientName: buyerName.trim() || "Unknown",
+                clientPhone: clientPhone.trim() || buyerPhone.trim() || "",
+                clientEmail: clientEmail.trim() || null,
+                vehicleId: selectedVehicle.id,
+                vehicleName: `${selectedVehicle.brandName} ${selectedVehicle.model}`,
+                totalAmount: salePriceVal,
+                downPayment: dp,
+                remainingAmount: remaining,
+                monthsPeriod: months,
+                monthlyDueAmount: monthlyDue,
+                totalReceived: 0,
+                startDate: vDate,
+                endDate: installmentEndDate || null,
+                installmentSchedule: schedule,
+                status: "active",
+                invoiceId: invoiceId,
+                createdAt: serverTimestamp(),
+                createdBy: user.uid
+            });
+        }
 
         // H. Log
         tx.set(doc(collection(db, "logs")), {
@@ -334,14 +460,27 @@ export const SaleInvoiceManager = () => {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                  <Users size={12} /> Seller *
+                  <Users size={12} /> Customer *
                 </label>
                 <SearchSelector
                   className="bg-card text-foreground border-border hover:bg-muted"
                   items={accounts}
                   value={receivingAccountId}
-                  onChange={setReceivingAccountId}
-                  placeholder="Select seller account..."
+                  onChange={(val) => {
+                    setReceivingAccountId(val);
+                    const acc = accounts.find(a => a.id === val);
+                    if (acc) {
+                      setOwnerName(acc.name || "");
+                      setOwnerFatherName(acc.fatherName || "");
+                      setOwnerCnic(acc.cnic || "");
+                      setBuyerName(acc.name || "");
+                      const phoneVal = acc.phone || acc.phoneNumber || "";
+                      setBuyerPhone(phoneVal);
+                      setClientPhone(phoneVal);
+                      setClientEmail(acc.email || "");
+                    }
+                  }}
+                  placeholder="Select customer account..."
                   searchPlaceholder="Search account..."
                   getSearchFields={(acc) => [acc.name, acc.shopName, acc.typeName]}
                   itemKey={(acc) => acc.id}
@@ -387,14 +526,135 @@ export const SaleInvoiceManager = () => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground">Buyer Phone (Optional)</label>
+                  <label className="text-xs font-semibold text-muted-foreground">Registration No.</label>
                   <Input
-                    value={buyerPhone}
-                    onChange={e => setBuyerPhone(e.target.value)}
-                    placeholder="e.g. 0300-1234567"
-                    className="h-10 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                    value={saleRegNo}
+                    onChange={e => setSaleRegNo(e.target.value)}
+                    placeholder="e.g. ABC-123"
+                    className="h-10 bg-card text-foreground border-border placeholder:text-muted-foreground uppercase"
                   />
                 </div>
+              </div>
+
+              <div className="pt-2 border-t border-border mt-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-1.5 bg-secondary rounded-md text-primary border border-primary/20"><FileText size={14} /></div>
+                  <h4 className="text-sm font-bold text-foreground uppercase tracking-wider">Registration / Owner Details</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">Owner Name</label>
+                    <Input
+                      value={ownerName}
+                      onChange={e => setOwnerName(e.target.value)}
+                      placeholder="e.g. Ahmed Khan"
+                      className="h-10 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">Father Name</label>
+                    <Input
+                      value={ownerFatherName}
+                      onChange={e => setOwnerFatherName(e.target.value)}
+                      placeholder="e.g. Ali Khan"
+                      className="h-10 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">CNIC Number</label>
+                    <Input
+                      value={ownerCnic}
+                      onChange={e => setOwnerCnic(e.target.value)}
+                      placeholder="e.g. 12345-1234567-1"
+                      className="h-10 bg-card text-foreground border-border placeholder:text-muted-foreground"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Installment Toggle & Fields */}
+              <div className="pt-2 border-t border-border mt-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <input
+                    type="checkbox"
+                    id="installments-toggle"
+                    checked={isInstallment}
+                    onChange={e => setIsInstallment(e.target.checked)}
+                    className="w-4 h-4 rounded border-border"
+                  />
+                  <label htmlFor="installments-toggle" className="text-sm font-bold text-foreground cursor-pointer">
+                    Enable Installment Plan
+                  </label>
+                </div>
+
+                {isInstallment && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 border border-border rounded-xl">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">Down Payment (PKR) *</label>
+                      <Input
+                        type="number"
+                        value={downPayment}
+                        onChange={e => setDownPayment(e.target.value)}
+                        placeholder="e.g. 500000"
+                        className="h-10 bg-card text-foreground border-border"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">Remaining Amount</label>
+                      <Input
+                        type="number"
+                        value={remainingAmount}
+                        onChange={e => setRemainingAmount(e.target.value)}
+                        className="h-10 bg-card text-foreground border-border"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">Months Period *</label>
+                      <Input
+                        type="number"
+                        value={monthsPeriod}
+                        onChange={e => setMonthsPeriod(e.target.value)}
+                        placeholder="e.g. 12"
+                        className="h-10 bg-card text-foreground border-border"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">End Date</label>
+                      <Input
+                        type="date"
+                        value={installmentEndDate}
+                        onChange={e => setInstallmentEndDate(e.target.value)}
+                        className="h-10 bg-card text-foreground border-border text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">Monthly Due Amount (Calculated)</label>
+                      <div className="h-10 px-3 flex items-center bg-muted text-foreground border border-border rounded-md text-sm font-semibold">
+                        Rs. {Number(monthlyDueAmount || 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">Client Phone (WhatsApp) *</label>
+                      <Input
+                        type="text"
+                        value={clientPhone}
+                        onChange={e => setClientPhone(e.target.value)}
+                        placeholder="e.g. 03001234567"
+                        className="h-10 bg-card text-foreground border-border"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">Client Email</label>
+                      <Input
+                        type="email"
+                        value={clientEmail}
+                        onChange={e => setClientEmail(e.target.value)}
+                        placeholder="e.g. client@email.com"
+                        className="h-10 bg-card text-foreground border-border"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* P&L Preview */}
@@ -434,7 +694,7 @@ export const SaleInvoiceManager = () => {
               <Button
                 onClick={handleCreateSaleInvoice}
                 disabled={loading || salePriceVal <= 0 || !receivingAccountId}
-                className="bg-secondary hover:bg-secondary/90 text-foreground h-11 px-8 gap-2 font-semibold"
+                className="bg-secondary hover:bg-secondary/90 text-white h-11 px-8 gap-2 font-semibold"
               >
                 {loading
                   ? <><Loader2 size={16} className="animate-spin" /> Processing...</>
@@ -490,6 +750,7 @@ export const SaleInvoiceManager = () => {
                     <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wide">Cost</th>
                     <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wide">Sale Price</th>
                     <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wide">Net P&L</th>
+                    <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wide">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -544,6 +805,36 @@ export const SaleInvoiceManager = () => {
                               {isProfit ? "+" : "-"}Rs. {Math.abs(netPL).toLocaleString()}
                             </span>
                           </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => setViewingVehicle(inv)} className="h-8 w-8 text-muted-foreground hover:text-primary" title="View Details">
+                                <Eye size={16} />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => setPrintingInvoice(inv)} className="h-8 w-8 text-muted-foreground hover:text-blue-600 hover:bg-blue-50" title="Print Invoice">
+                                <Printer size={16} />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => {
+                                  if (confirm("Are you sure you want to delete this sale invoice? The vehicle will be reverted to SHOWROOM status.")) {
+                                    const carRef = doc(db, "cars", inv.id);
+                                    updateDoc(carRef, {
+                                      isSold: false,
+                                      salePrice: null,
+                                      saleDate: null,
+                                      buyerName: null,
+                                      buyerPhone: null,
+                                      ownerName: null,
+                                      ownerFatherName: null,
+                                      ownerCnic: null,
+                                      saleAccountId: null,
+                                      netProfit: null,
+                                      currentStatus: "SHOWROOM"
+                                    });
+                                  }
+                              }} className="h-8 w-8 text-muted-foreground hover:text-red-600">
+                                <Trash2 size={16} />
+                              </Button>
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
@@ -583,6 +874,18 @@ export const SaleInvoiceManager = () => {
         open={showQuickAddClient}
         onClose={() => setShowQuickAddClient(false)}
         onCreated={(accountId) => setReceivingAccountId(accountId)}
+      />
+
+      <VehicleDetailModal
+        isOpen={!!viewingVehicle}
+        onClose={() => setViewingVehicle(null)}
+        vehicle={viewingVehicle}
+      />
+
+      <SaleInvoicePrintModal
+        isOpen={!!printingInvoice}
+        onClose={() => setPrintingInvoice(null)}
+        invoice={printingInvoice}
       />
     </div>
   );

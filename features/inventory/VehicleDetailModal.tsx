@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { X, Printer, Car, Calendar, Gauge, Fuel, Settings2, FileText, User, Hash, MapPin, Phone, CreditCard } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { formatDate } from "@/lib/dateUtils";
 
@@ -17,9 +17,41 @@ export const VehicleDetailModal = ({ isOpen, onClose, vehicle }: VehicleDetailMo
   const [currentOwner, setCurrentOwner] = useState<any>(null);
   const [regOwner, setRegOwner] = useState<any>(null);
 
+  const [handover, setHandover] = useState({
+    hasRegCard: false,
+    hasPlates: false,
+    hasReturnFile: false,
+    hasKeys: false,
+    hasPapers: false
+  });
+
+  const [isEditingOwner, setIsEditingOwner] = useState(false);
+  const [ownerData, setOwnerData] = useState({
+    ownerName: '',
+    ownerFatherName: '',
+    ownerCnic: ''
+  });
+
   // Fetch full client details when modal opens
   useEffect(() => {
     if (!vehicle) return;
+
+    // Initialize handover state
+    setHandover({
+      hasRegCard: !!vehicle.hasRegCard,
+      hasPlates: !!vehicle.hasPlates,
+      hasReturnFile: !!vehicle.hasReturnFile,
+      hasKeys: !!vehicle.hasKeys,
+      hasPapers: !!vehicle.hasPapers
+    });
+
+    setOwnerData({
+      ownerName: vehicle.ownerName || '',
+      ownerFatherName: vehicle.ownerFatherName || '',
+      ownerCnic: vehicle.ownerCnic || ''
+    });
+
+    setIsEditingOwner(false);
 
     const fetchClients = async () => {
       // 1. Fetch Possession Owner
@@ -45,6 +77,60 @@ export const VehicleDetailModal = ({ isOpen, onClose, vehicle }: VehicleDetailMo
 
     fetchClients();
   }, [vehicle]);
+
+  const handleToggleHandover = async (field: keyof typeof handover) => {
+    if (!vehicle || !vehicle.id) return;
+    const newValue = !handover[field];
+    
+    // Optimistic update
+    setHandover(prev => ({ ...prev, [field]: newValue }));
+    
+    try {
+      await updateDoc(doc(db, "cars", vehicle.id), {
+        [field]: newValue
+      });
+    } catch (e) {
+      console.error("Failed to update handover item:", e);
+      // Revert on failure
+      setHandover(prev => ({ ...prev, [field]: !newValue }));
+      alert("Failed to update handover item.");
+    }
+  };
+
+  const handleSaveOwner = async () => {
+    if (!vehicle?.id) return;
+    try {
+      await updateDoc(doc(db, "cars", vehicle.id), {
+        ownerName: ownerData.ownerName,
+        ownerFatherName: ownerData.ownerFatherName,
+        ownerCnic: ownerData.ownerCnic,
+      });
+
+      // Update in associated vouchers
+      try {
+        const vouchersQuery = query(collection(db, "vouchers"), where("vehicleId", "==", vehicle.id));
+        const vouchersSnap = await getDocs(vouchersQuery);
+        const batchPromises = vouchersSnap.docs.map(docRef => 
+          updateDoc(docRef.ref, {
+            ownerName: ownerData.ownerName,
+            ownerFatherName: ownerData.ownerFatherName,
+            ownerCnic: ownerData.ownerCnic,
+          })
+        );
+        await Promise.all(batchPromises);
+      } catch (e) {
+        console.error("Error updating owner in vouchers:", e);
+      }
+
+      setIsEditingOwner(false);
+      vehicle.ownerName = ownerData.ownerName;
+      vehicle.ownerFatherName = ownerData.ownerFatherName;
+      vehicle.ownerCnic = ownerData.ownerCnic;
+    } catch (error) {
+      console.error(error);
+      alert("Failed to update owner details.");
+    }
+  };
 
   if (!isOpen || !vehicle) return null;
 
@@ -156,21 +242,56 @@ export const VehicleDetailModal = ({ isOpen, onClose, vehicle }: VehicleDetailMo
       {/* --- Full Ownership Details (Conditional) --- */}
       {hasAnyOwner && (
         <div className="mb-8">
-            <h3 className="text-sm font-bold uppercase text-foreground mb-4 border-b border-border pb-2 flex items-center gap-2">
-                <User size={16} /> Ownership & Possession
-            </h3>
+            <div className="flex items-center justify-between border-b border-border pb-2 mb-4">
+                <h3 className="text-sm font-bold uppercase text-foreground flex items-center gap-2">
+                    <User size={16} /> Ownership & Possession
+                </h3>
+                {vehicle.isSold && (
+                  <div>
+                    {isEditingOwner ? (
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setIsEditingOwner(false)} className="h-7 text-xs">Cancel</Button>
+                        <Button size="sm" onClick={handleSaveOwner} className="h-7 text-xs">Save</Button>
+                      </div>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => setIsEditingOwner(true)} className="h-7 text-xs print:hidden">
+                        Edit Owner
+                      </Button>
+                    )}
+                  </div>
+                )}
+            </div>
             
             <div className={`grid gap-8 ${hasCurrentOwner && hasRegOwner ? 'grid-cols-2' : 'grid-cols-1'}`}>
                 {/* Current Owner */}
                 {hasCurrentOwner && (
                     <div className="p-4 border border-border rounded-lg">
-                        <p className="text-xs font-bold text-muted-foreground uppercase mb-3">Current Possession</p>
-                        <div className="space-y-2">
-                            <DetailRow label="Name" value={currentOwner?.name || vehicle.ownerName} icon={User} />
-                            <DetailRow label="Phone" value={currentOwner?.phone || vehicle.ownerContact} icon={Phone} />
-                            <DetailRow label="CNIC / ID" value={currentOwner?.cnic} icon={CreditCard} />
-                            <DetailRow label="Address" value={currentOwner?.address} icon={MapPin} />
-                        </div>
+                        <p className="text-xs font-bold text-muted-foreground uppercase mb-3">Current Possession / Owner</p>
+                        
+                        {isEditingOwner ? (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-xs font-semibold text-muted-foreground">Owner Name</label>
+                              <input type="text" className="w-full text-sm p-1.5 border rounded" value={ownerData.ownerName} onChange={e => setOwnerData({...ownerData, ownerName: e.target.value})} />
+                            </div>
+                            <div>
+                              <label className="text-xs font-semibold text-muted-foreground">Father Name</label>
+                              <input type="text" className="w-full text-sm p-1.5 border rounded" value={ownerData.ownerFatherName} onChange={e => setOwnerData({...ownerData, ownerFatherName: e.target.value})} />
+                            </div>
+                            <div>
+                              <label className="text-xs font-semibold text-muted-foreground">CNIC / ID</label>
+                              <input type="text" className="w-full text-sm p-1.5 border rounded" value={ownerData.ownerCnic} onChange={e => setOwnerData({...ownerData, ownerCnic: e.target.value})} />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                              <DetailRow label="Name" value={currentOwner?.name || vehicle.ownerName} icon={User} />
+                              {(currentOwner?.fatherName || vehicle.ownerFatherName) && <DetailRow label="Father Name" value={currentOwner?.fatherName || vehicle.ownerFatherName} icon={User} />}
+                              <DetailRow label="Phone" value={currentOwner?.phone || vehicle.ownerContact} icon={Phone} />
+                              <DetailRow label="CNIC / ID" value={currentOwner?.cnic || vehicle.ownerCnic} icon={CreditCard} />
+                              <DetailRow label="Address" value={currentOwner?.address} icon={MapPin} />
+                          </div>
+                        )}
                     </div>
                 )}
 
@@ -186,6 +307,41 @@ export const VehicleDetailModal = ({ isOpen, onClose, vehicle }: VehicleDetailMo
                         </div>
                     </div>
                 )}
+            </div>
+        </div>
+      )}
+
+      {/* --- Sale & Handover Checklist --- */}
+      {vehicle.isSold && (
+        <div className="mb-8">
+            <h3 className="text-sm font-bold uppercase text-foreground mb-4 border-b border-border pb-2 flex items-center gap-2">
+                <FileText size={16} /> Sale & Handover Checklist
+            </h3>
+            
+            <div className="p-4 border border-border rounded-lg bg-muted/30">
+                <p className="text-xs text-muted-foreground mb-3">Check off items physically handed over to the buyer.</p>
+                <div className="flex flex-wrap gap-6">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" className="w-4 h-4 cursor-pointer accent-primary print:hidden" checked={handover.hasRegCard} onChange={() => handleToggleHandover('hasRegCard')} />
+                        <span className="text-sm font-semibold group-hover:text-primary transition-colors">Reg Card {handover.hasRegCard && <span className="hidden print:inline">✔</span>}</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" className="w-4 h-4 cursor-pointer accent-primary print:hidden" checked={handover.hasPlates} onChange={() => handleToggleHandover('hasPlates')} />
+                        <span className="text-sm font-semibold group-hover:text-primary transition-colors">Number Plates {handover.hasPlates && <span className="hidden print:inline">✔</span>}</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" className="w-4 h-4 cursor-pointer accent-primary print:hidden" checked={handover.hasReturnFile} onChange={() => handleToggleHandover('hasReturnFile')} />
+                        <span className="text-sm font-semibold group-hover:text-primary transition-colors">Return File {handover.hasReturnFile && <span className="hidden print:inline">✔</span>}</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" className="w-4 h-4 cursor-pointer accent-primary print:hidden" checked={handover.hasKeys} onChange={() => handleToggleHandover('hasKeys')} />
+                        <span className="text-sm font-semibold group-hover:text-primary transition-colors">Keys {handover.hasKeys && <span className="hidden print:inline">✔</span>}</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" className="w-4 h-4 cursor-pointer accent-primary print:hidden" checked={handover.hasPapers} onChange={() => handleToggleHandover('hasPapers')} />
+                        <span className="text-sm font-semibold group-hover:text-primary transition-colors">Papers {handover.hasPapers && <span className="hidden print:inline">✔</span>}</span>
+                    </label>
+                </div>
             </div>
         </div>
       )}

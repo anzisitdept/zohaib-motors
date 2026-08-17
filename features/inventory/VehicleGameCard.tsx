@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
     CarFront, Calendar, Fuel, Zap, Ban, CheckCircle2,
     FileText, User, Printer, ScanBarcode, Pencil, Trash2,
-    ShieldCheck, Truck, AlertTriangle, Image as ImageIcon, Phone, Mail, CreditCard, MapPin, Settings2, Copy, Check, Wrench, DollarSign
+    ShieldCheck, Truck, AlertTriangle, Image as ImageIcon, Phone, Mail, CreditCard, MapPin, Settings2, Copy, Check, Wrench, DollarSign, Eye
 } from "lucide-react";
 import { VehicleDetailModal } from "./VehicleDetailModal";
 import { DocStatusDialog } from "./DocStatusDialog";
@@ -523,6 +523,9 @@ export const VehicleGameCard = ({ vehicle, onEdit, onDelete, onPrintDetail, onPr
 
                 {/* --- 5. Action Footer --- */}
                 <div className="mt-auto p-3 border-t border-border bg-muted/50 flex flex-wrap gap-1.5">
+                    <Button onClick={() => onPrintDetail(vehicle)} variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-cyan-600 hover:bg-cyan-50" title="View Details">
+                        <Eye size={16} />
+                    </Button>
                     <Button onClick={() => onPrintDetail(vehicle)} variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-cyan-600 hover:bg-cyan-50" title="Print Detail">
                         <Printer size={16} />
                     </Button>

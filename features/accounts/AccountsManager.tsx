@@ -4,7 +4,8 @@ import {
   collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot,
   query, orderBy, serverTimestamp, getDocs, where
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,8 @@ interface Account {
   phoneNumber?: string;
   cnic?: string;
   cnicPicture?: string;
+  attachmentUrl?: string;
+  attachmentName?: string;
   address?: string;
   createdAt: any;
 }
@@ -67,9 +70,12 @@ export const AccountsManager = () => {
     phoneNumber: "",
     cnic: "",
     cnicPicture: "",
+    attachmentUrl: "",
+    attachmentName: "",
     address: ""
   });
   const [cnicFile, setCnicFile] = useState<File | null>(null);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
   // Fetch Accounts and Account Types
   useEffect(() => {
@@ -113,9 +119,12 @@ export const AccountsManager = () => {
       phoneNumber: "",
       cnic: "",
       cnicPicture: "",
+      attachmentUrl: "",
+      attachmentName: "",
       address: ""
     });
     setCnicFile(null);
+    setAttachmentFile(null);
     setIsEditing(null);
     setMessage("");
   };
@@ -133,9 +142,12 @@ export const AccountsManager = () => {
       phoneNumber: account.phoneNumber || "",
       cnic: account.cnic || "",
       cnicPicture: account.cnicPicture || "",
+      attachmentUrl: account.attachmentUrl || "",
+      attachmentName: account.attachmentName || "",
       address: account.address || ""
     });
     setCnicFile(null);
+    setAttachmentFile(null);
     setIsEditing(account.id);
     setMessage("");
   };
@@ -210,6 +222,15 @@ export const AccountsManager = () => {
         }
       }
 
+      let attachUrl = formData.attachmentUrl;
+      let attachName = formData.attachmentName;
+      if (attachmentFile) {
+        const storageRef = ref(storage, `accounts/${Date.now()}_${attachmentFile.name}`);
+        const snapshot = await uploadBytes(storageRef, attachmentFile);
+        attachUrl = await getDownloadURL(snapshot.ref);
+        attachName = attachmentFile.name;
+      }
+
       const enteredBalance = parseFloat(formData.balance) || 0;
       const finalBalance = formData.balanceType === "credit" ? -Math.abs(enteredBalance) : Math.abs(enteredBalance);
 
@@ -224,6 +245,8 @@ export const AccountsManager = () => {
         phoneNumber: requireNumberInfo ? formData.phoneNumber.trim() : "",
         cnic: requireNumberInfo ? formData.cnic.trim() : "",
         cnicPicture: requireNumberInfo ? cnicPicUrl : "",
+        attachmentUrl: attachUrl,
+        attachmentName: attachName,
         address: requireNumberInfo ? formData.address.trim() : "",
         updatedBy: user.uid,
         updatedAt: serverTimestamp()
@@ -457,6 +480,7 @@ export const AccountsManager = () => {
                   )}
                 </div>
 
+
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
                     <MapPin size={12} /> Address
@@ -493,6 +517,34 @@ export const AccountsManager = () => {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2 mt-4">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                <FileImage size={12} /> General Attachment (PDF / Image)
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={e => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      setAttachmentFile(e.target.files[0]);
+                    }
+                  }}
+                  className="file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:bg-muted file:text-primary hover:file:bg-blue-100"
+                />
+              </div>
+              {(formData.attachmentUrl || attachmentFile) && (
+                <div className="text-[10px] text-green-600 font-medium flex items-center gap-1 mt-1">
+                  <CheckCircle2 size={12} /> {attachmentFile ? "New file selected" : "File previously uploaded"}
+                </div>
+              )}
+              {formData.attachmentUrl && !attachmentFile && (
+                <a href={formData.attachmentUrl} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 underline">
+                  View current attachment
+                </a>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -564,11 +616,16 @@ export const AccountsManager = () => {
                       Shop: {account.shopName}
                     </div>
                   )}
-                  {(account.phoneNumber || account.fatherName || account.cnic) && (
+                  {(account.phoneNumber || account.fatherName || account.cnic || account.attachmentUrl) && (
                     <div className="text-[11px] text-muted-foreground mt-1 space-x-2">
                       {account.phoneNumber && <span>📞 {account.phoneNumber}</span>}
                       {account.fatherName && <span>👤 S/O {account.fatherName}</span>}
                       {account.cnic && <span>🪪 {account.cnic}</span>}
+                      {account.attachmentUrl && (
+                        <a href={account.attachmentUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">
+                          📎 Attachment
+                        </a>
+                      )}
                     </div>
                   )}
                   {account.description && (

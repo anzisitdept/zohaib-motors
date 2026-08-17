@@ -9,12 +9,14 @@ import { Loader2, Calendar, DollarSign, CheckCircle2 } from "lucide-react";
 export const EditInstallmentPlanModal = ({ plan, open, onClose }: { plan: any, open: boolean, onClose: () => void }) => {
   const [schedule, setSchedule] = useState<any[]>([]);
   const [clientPhone, setClientPhone] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (plan && plan.installmentSchedule) {
       setSchedule(JSON.parse(JSON.stringify(plan.installmentSchedule)));
       setClientPhone(plan.clientPhone || "");
+      setClientEmail(plan.clientEmail || "");
     }
   }, [plan]);
 
@@ -34,10 +36,11 @@ export const EditInstallmentPlanModal = ({ plan, open, onClose }: { plan: any, o
     try {
       const planRef = doc(db, "installmentPlans", plan.id);
       
-      // Update schedule and phone
+      // Update schedule, phone and email
       await updateDoc(planRef, {
         installmentSchedule: schedule,
         clientPhone: clientPhone.trim() || null,
+        clientEmail: clientEmail.trim() || null,
         updatedAt: serverTimestamp()
       });
 
@@ -73,15 +76,27 @@ export const EditInstallmentPlanModal = ({ plan, open, onClose }: { plan: any, o
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
-          <div className="space-y-1.5 px-1">
-            <label className="text-xs font-semibold text-muted-foreground">Client Phone (For WhatsApp Reminders)</label>
-            <Input 
-              type="tel" 
-              value={clientPhone} 
-              onChange={e => setClientPhone(e.target.value)} 
-              placeholder="03001234567" 
-              className="h-10"
-            />
+          <div className="grid grid-cols-2 gap-4 px-1">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">Client Phone (For WhatsApp Reminders)</label>
+              <Input 
+                type="tel" 
+                value={clientPhone} 
+                onChange={e => setClientPhone(e.target.value)} 
+                placeholder="03001234567" 
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">Client Email</label>
+              <Input 
+                type="email" 
+                value={clientEmail} 
+                onChange={e => setClientEmail(e.target.value)} 
+                placeholder="client@email.com" 
+                className="h-10"
+              />
+            </div>
           </div>
 
           <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-2 border-t pt-4">

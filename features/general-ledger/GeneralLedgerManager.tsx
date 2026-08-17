@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
+import { VehicleDetailModal } from "@/features/inventory/VehicleDetailModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +33,8 @@ interface LedgerEntry {
   credit: number;
   balanceAfter: number;
   createdAt: any;
+  vehicleId?: string | null;
+  invoiceType?: string | null;
 }
 
 export const GeneralLedgerManager = () => {
@@ -47,6 +50,25 @@ export const GeneralLedgerManager = () => {
   const [filterMode, setFilterMode] = useState<"whole" | "range">("whole");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Modal State for Sold Vehicles
+  const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleOpenVehicleModal = async (vehicleId: string) => {
+    try {
+      const snap = await getDoc(doc(db, "cars", vehicleId));
+      if (snap.exists()) {
+        setSelectedVehicle({ id: snap.id, ...snap.data() });
+        setIsModalOpen(true);
+      } else {
+        alert("Vehicle not found.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to fetch vehicle details.");
+    }
+  };
 
   // Load Accounts, Cash Vouchers & General Vouchers
   useEffect(() => {
@@ -108,7 +130,9 @@ export const GeneralLedgerManager = () => {
             debit: v.cashType === 'debit' ? cashDelta : 0,
             credit: v.cashType === 'credit' ? cashDelta : 0,
             balanceAfter: v.cashNewBalance ?? acc.balance,
-            createdAt: v.createdAt
+            createdAt: v.createdAt,
+            vehicleId: v.vehicleId || null,
+            invoiceType: v.invoiceType || null
           });
         }
         // Counter leg — use ACTUAL balance change for same reason
@@ -124,7 +148,9 @@ export const GeneralLedgerManager = () => {
             debit: v.counterType === 'debit' ? counterDelta : 0,
             credit: v.counterType === 'credit' ? counterDelta : 0,
             balanceAfter: v.counterNewBalance ?? acc.balance,
-            createdAt: v.createdAt
+            createdAt: v.createdAt,
+            vehicleId: v.vehicleId || null,
+            invoiceType: v.invoiceType || null
           });
         }
       } else {
@@ -138,7 +164,9 @@ export const GeneralLedgerManager = () => {
             debit: v.type === 'debit' ? v.amount : 0,
             credit: v.type === 'credit' ? v.amount : 0,
             balanceAfter: v.newBalance ?? acc.balance,
-            createdAt: v.createdAt
+            createdAt: v.createdAt,
+            vehicleId: v.vehicleId || null,
+            invoiceType: v.invoiceType || null
           });
         }
       }
@@ -756,6 +784,7 @@ export const GeneralLedgerManager = () => {
                           <th className="px-6 py-4 text-right">Debit (+)</th>
                           <th className="px-6 py-4 text-right">Credit (-)</th>
                           <th className="px-6 py-4 text-right">Running Balance</th>
+                          <th className="px-6 py-4 text-center print-hide">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
@@ -775,6 +804,7 @@ export const GeneralLedgerManager = () => {
                             <td className="px-6 py-4 text-right font-extrabold text-foreground">
                               Rs. {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </td>
+                            <td className="px-6 py-4 text-center print-hide">-</td>
                           </tr>
                         )}
                         {singleAccountData.entries.map(entry => (
@@ -797,12 +827,24 @@ export const GeneralLedgerManager = () => {
                             <td className="px-6 py-4 text-right font-bold text-foreground">
                               Rs. {entry.balanceAfter.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </td>
+                            <td className="px-6 py-4 text-center print-hide">
+                              {entry.vehicleId && entry.invoiceType === "SALE" && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => handleOpenVehicleModal(entry.vehicleId!)} 
+                                  className="h-8 px-2 text-xs text-primary hover:text-primary hover:bg-primary/10"
+                                >
+                                  Edit Owner
+                                </Button>
+                              )}
+                            </td>
                           </tr>
                         ))}
 
                         {singleAccountData.entries.length === 0 && (
                           <tr>
-                            <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                            <td colSpan={7} className="p-8 text-center text-muted-foreground">
                               No ledger transactions found for this account.
                             </td>
                           </tr>
@@ -829,6 +871,12 @@ export const GeneralLedgerManager = () => {
           <PrintableLedgerDoc />
         </div>
       )}
+
+      <VehicleDetailModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        vehicle={selectedVehicle}
+      />
     </>
   );
 };
