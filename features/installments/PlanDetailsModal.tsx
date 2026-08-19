@@ -42,6 +42,9 @@ export const PlanDetailsModal = ({ plan, open, onClose }: { plan: any, open: boo
   const [loadedForId, setLoadedForId] = useState<string | null>(null);
   const loading = open && !!plan && loadedForId !== plan.id;
 
+  // State for payment modal
+  const [paymentOpen, setPaymentOpen] = useState(false);
+
   useEffect(() => {
     if (!open || !plan) return;
 
@@ -82,10 +85,6 @@ export const PlanDetailsModal = ({ plan, open, onClose }: { plan: any, open: boo
   const schedule = (livePlan?.installmentSchedule || [])
     .map((inst: any, index: number) => ({ ...inst, index }))
     .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-
-  // State for payment modal
-  const [isPaying, setIsPaying] = useState(false);
-  const [paymentOpen, setPaymentOpen] = useState(false);
 
   const totalPaid = schedule
     .filter((inst: any) => inst.paid)
@@ -217,7 +216,7 @@ export const PlanDetailsModal = ({ plan, open, onClose }: { plan: any, open: boo
                                 variant="outline"
                                 size="sm"
                                 className="text-xs font-medium text-primary hover:text-emerald-700"
-                                onClick={() => setPlan(plan)}
+                                onClick={() => setPaymentOpen(true)}
                               >
                                 Make Payment
                               </Button>
@@ -273,9 +272,9 @@ export const PlanDetailsModal = ({ plan, open, onClose }: { plan: any, open: boo
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
-          {paymentOpen ? (
-            <RecordPaymentModal plan={plan} onClose={() => setPaymentOpen(false)} />
-          ) : null}
+          {paymentOpen && (
+            <RecordPaymentModal plan={plan} open={paymentOpen} onClose={() => setPaymentOpen(false)} />
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
