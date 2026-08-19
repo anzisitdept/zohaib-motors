@@ -32,6 +32,9 @@ export const VehicleDetailModal = ({ isOpen, onClose, vehicle }: VehicleDetailMo
     ownerCnic: ''
   });
 
+  const [notes, setNotes] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
+
   // Fetch full client details when modal opens
   useEffect(() => {
     if (!vehicle) return;
@@ -45,11 +48,16 @@ export const VehicleDetailModal = ({ isOpen, onClose, vehicle }: VehicleDetailMo
       hasPapers: !!vehicle.hasPapers
     });
 
+    setNotes(vehicle.notes || "");
+
     setOwnerData({
       ownerName: vehicle.ownerName || '',
       ownerFatherName: vehicle.ownerFatherName || '',
       ownerCnic: vehicle.ownerCnic || ''
     });
+
+    setNotes(vehicle.notes || "");
+    setSavingNotes(false);
 
     setIsEditingOwner(false);
 
@@ -129,6 +137,22 @@ export const VehicleDetailModal = ({ isOpen, onClose, vehicle }: VehicleDetailMo
     } catch (error) {
       console.error(error);
       alert("Failed to update owner details.");
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!vehicle?.id) return;
+    setSavingNotes(true);
+    try {
+      await updateDoc(doc(db, "cars", vehicle.id), {
+        notes: notes.trim() || null
+      });
+      setSavingNotes(false);
+      alert("Notes saved.");
+    } catch (error) {
+      console.error(error);
+      setSavingNotes(false);
+      alert("Failed to save notes.");
     }
   };
 
@@ -345,6 +369,29 @@ export const VehicleDetailModal = ({ isOpen, onClose, vehicle }: VehicleDetailMo
             </div>
         </div>
       )}
+
+      {/* --- Notes --- */}
+      <div className="mb-8">
+        <h3 className="text-sm font-bold uppercase text-foreground mb-4 border-b border-border pb-2 flex items-center gap-2">
+          <FileText size={16} /> Notes
+        </h3>
+        <div className="p-4 border border-border rounded-lg bg-muted/30">
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Add or update notes for this invoice..."
+            className="w-full text-sm p-2.5 border border-border rounded-md bg-card text-foreground print:hidden"
+          />
+          <div className="flex items-center justify-between mt-2 print:hidden">
+            <p className="text-xs text-muted-foreground">Notes are visible on the invoice and can be edited anytime.</p>
+            <Button size="sm" onClick={handleSaveNotes} disabled={savingNotes} className="h-8 text-xs bg-secondary hover:bg-secondary/90 text-white">
+              {savingNotes ? "Saving..." : "Save Notes"}
+            </Button>
+          </div>
+          {notes && <p className="text-sm whitespace-pre-wrap hidden print:block">{notes}</p>}
+        </div>
+      </div>
 
       {/* --- Footer --- */}
       <div className="mt-12 pt-6 border-t border-border flex justify-between items-end text-[10px] text-muted-foreground uppercase tracking-wider">

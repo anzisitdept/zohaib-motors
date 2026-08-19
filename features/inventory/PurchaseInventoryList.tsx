@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import {
   Car, Search, Filter, X, CheckCircle2, AlertTriangle,
-  Coins, FileText, LayoutList, Trash2, Loader2, ShieldAlert
+  Coins, FileText, LayoutList, Trash2, Loader2, ShieldAlert, Eye
 } from "lucide-react";
 
 // ─── Confirmation Dialog ──────────────────────────────────────────────────────
@@ -173,6 +173,87 @@ function DeleteConfirmDialog({ vehicle, onConfirm, onCancel, loading, error }: D
   );
 }
 
+// ─── View Details Dialog ──────────────────────────────────────────────────────
+interface ViewDetailsDialogProps {
+  vehicle: any;
+  onClose: () => void;
+}
+
+function Row({ label, value }: { label: string; value?: any }) {
+  return (
+    <div className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+      <span className="text-xs text-muted-foreground uppercase tracking-wide">{label}</span>
+      <span className="text-xs font-medium text-foreground">{value || "—"}</span>
+    </div>
+  );
+}
+
+function ViewDetailsDialog({ vehicle, onClose }: ViewDetailsDialogProps) {
+  const isSold = !!vehicle?.isSold;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Dialog */}
+      <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] border border-border overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 border-b border-border flex items-start gap-4 shrink-0">
+          <div className="p-2.5 rounded-xl bg-secondary text-white shrink-0">
+            <Eye size={22} />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-foreground">
+              {isSold ? "Sold Vehicle Details" : "Vehicle Details"}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {vehicle?.brandName} {vehicle?.model} {vehicle?.variant ? `— ${vehicle.variant}` : ""}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors mt-0.5"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Body - scrollable */}
+        <div className="px-6 py-4 overflow-y-auto flex-1">
+          <div className="space-y-1">
+            <Row label="Chassis No." value={vehicle.chassisNumber || vehicle.chassisNo} />
+            <Row label="Registration" value={vehicle.registrationNumber || vehicle.registrationNo} />
+            <Row label="Model Year" value={vehicle.modelYear || vehicle.year} />
+            <Row label="Color" value={vehicle.color} />
+            <Row label="Purchase Price" value={vehicle.purchasePrice ? `Rs. ${Number(vehicle.purchasePrice).toLocaleString()}` : "—"} />
+            <Row label="Total Expenses" value={vehicle.totalExpenses ? `Rs. ${Number(vehicle.totalExpenses).toLocaleString()}` : "—"} />
+            <Row label="Capitalized Cost" value={vehicle.capitalizedCost ? `Rs. ${Number(vehicle.capitalizedCost).toLocaleString()}` : "—"} />
+            <Row label="Payment Status" value={vehicle.isPaid ? "Paid" : "Unpaid"} />
+            {vehicle.sellerClientName && (
+              <Row label="Seller" value={vehicle.sellerClientName} />
+            )}
+            <Row label="Status" value={isSold ? "SOLD" : "In Stock"} />
+
+            {isSold && (
+              <>
+                <Row label="Sale Price" value={vehicle.salePrice ? `Rs. ${Number(vehicle.salePrice).toLocaleString()}` : "—"} />
+                <Row label="Net Profit" value={vehicle.netProfit ? `Rs. ${Number(vehicle.netProfit).toLocaleString()}` : "—"} />
+                {vehicle.buyerName && <Row label="Buyer" value={vehicle.buyerName} />}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-3 border-t border-border flex items-center justify-end shrink-0">
+          <Button onClick={onClose} variant="outline">Close</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function PurchaseInventoryList() {
   const { user } = useAuth();
@@ -191,6 +272,9 @@ export function PurchaseInventoryList() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  // View state
+  const [viewTarget, setViewTarget] = useState<any | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, "cars"), orderBy("createdAt", "desc"));
@@ -432,6 +516,11 @@ export function PurchaseInventoryList() {
           loading={deleteLoading}
           error={deleteError}
         />
+      )}
+
+      {/* View Details Dialog */}
+      {viewTarget && (
+        <ViewDetailsDialog vehicle={viewTarget} onClose={() => setViewTarget(null)} />
       )}
 
       {/* Success Message */}
@@ -687,21 +776,30 @@ export function PurchaseInventoryList() {
                         )}
                       </td>
                       <td className="px-4 py-3.5 text-center">
-                        <button
-                          onClick={() => { setDeleteError(""); setDeleteTarget(v); }}
-                          title={isSold ? "Cannot delete a sold vehicle — reverse the sale first" : "Delete purchase record & reverse accounting"}
-                          className={`
-                            inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium
-                            transition-all duration-150
-                            ${isSold
-                              ? "text-muted-foreground cursor-not-allowed bg-muted border border-border"
-                              : "text-red-500 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200 opacity-0 group-hover:opacity-100"
-                            }
-                          `}
-                        >
-                          <Trash2 size={13} />
-                          {isSold ? "Sold" : "Delete"}
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => setViewTarget(v)}
+                            title="View vehicle details"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 bg-muted border border-border hover:bg-muted/80"
+                          >
+                            <Eye size={13} />
+                          </button>
+                          <button
+                            onClick={() => { setDeleteError(""); setDeleteTarget(v); }}
+                            title={isSold ? "Cannot delete a sold vehicle — reverse the sale first" : "Delete purchase record & reverse accounting"}
+                            className={`
+                              inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium
+                              transition-all duration-150
+                              ${isSold
+                                ? "text-muted-foreground cursor-not-allowed bg-muted border border-border"
+                                : "text-red-500 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200 opacity-0 group-hover:opacity-100"
+                              }
+                            `}
+                          >
+                            <Trash2 size={13} />
+                            {isSold ? "Sold" : "Delete"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

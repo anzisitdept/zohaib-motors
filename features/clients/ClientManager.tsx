@@ -6,10 +6,12 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Search, Plus, Pencil, Trash2, User, Phone, Mail, MapPin, CreditCard, X, Image as ImageIcon } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, User, Phone, Mail, MapPin, CreditCard, X, Image as ImageIcon, Store, ContactRound, FileUp, Link2, Loader2 } from "lucide-react";
 import { ClientAssetsModal } from "./ClientAssetsModal";
 import { SignatureCapture, SignatureCaptureRef } from "@/components/SignatureCapture";
 import { uploadToImgBB } from "@/lib/imgbbUpload";
+import { uploadFileToStorage } from "@/lib/uploadFile";
+import { ClientDetailsModal } from "./ClientDetailsModal";
 
 
 interface Client {
@@ -20,6 +22,9 @@ interface Client {
   email?: string;
   cnic?: string; // National ID
   address?: string;
+  contactPerson?: string;
+  showroomName?: string;
+  cnicUploadFile?: string; // Uploaded CNIC scan/image URL
   assets?: string[];
   signatureUrl?: string; // Signature image URL
   accountId?: string; // Associated auto-created cash account ID
@@ -31,6 +36,7 @@ export const ClientManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [assetsClient, setAssetsClient] = useState<Client | null>(null);
+  const [detailsClient, setDetailsClient] = useState<Client | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -39,8 +45,15 @@ export const ClientManager = () => {
     phone: "",
     email: "",
     cnic: "",
-    address: ""
+    address: "",
+    contactPerson: "",
+    showroomName: ""
   });
+
+  // CNIC Upload State
+  const [cnicFile, setCnicFile] = useState<File | null>(null);
+  const [uploadingCnic, setUploadingCnic] = useState(false);
+  const [existingCnicUrl, setExistingCnicUrl] = useState("");
 
   // Signature State
   const signatureRef = useRef<SignatureCaptureRef | null>(null);
@@ -57,9 +70,12 @@ export const ClientManager = () => {
   }, []);
 
   const resetForm = () => {
-    setFormData({ name: "", fatherName: "", phone: "", email: "", cnic: "", address: "" });
+    setFormData({ name: "", fatherName: "", phone: "", email: "", cnic: "", address: "", contactPerson: "", showroomName: "" });
     setIsEditing(null);
     setEditingClientSignature(undefined);
+    setCnicFile(null);
+    setExistingCnicUrl("");
+    setUploadingCnic(false);
     signatureRef.current?.clear();
   };
 
@@ -70,10 +86,14 @@ export const ClientManager = () => {
       phone: client.phone,
       email: client.email || "",
       cnic: client.cnic || "",
-      address: client.address || ""
+      address: client.address || "",
+      contactPerson: client.contactPerson || "",
+      showroomName: client.showroomName || ""
     });
     setIsEditing(client.id);
     setEditingClientSignature(client.signatureUrl);
+    setCnicFile(null);
+    setExistingCnicUrl(client.cnicUploadFile || "");
   };
 
   const handleDelete = async (id: string) => {
@@ -126,9 +146,26 @@ export const ClientManager = () => {
       }
     }
 
+    // Handle CNIC file upload (image/pdf)
+    let cnicUploadFile = existingCnicUrl;
+    if (cnicFile) {
+      try {
+        setUploadingCnic(true);
+        cnicUploadFile = await uploadFileToStorage(cnicFile, "clients/cnic");
+      } catch (error) {
+        console.error("CNIC upload failed:", error);
+        alert("Warning: Client will be saved but CNIC file upload failed.");
+      } finally {
+        setUploadingCnic(false);
+      }
+    }
+
     const payload = {
       ...formData,
       ...(signatureUrl !== undefined && { signatureUrl }),
+      ...(cnicUploadFile ? { cnicUploadFile } : {}),
+      contactPerson: formData.contactPerson.trim(),
+      showroomName: formData.showroomName.trim(),
       updatedBy: user.uid,
       updatedAt: serverTimestamp()
     };
@@ -253,6 +290,13 @@ export const ClientManager = () => {
 
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+              <ContactRound size={12} /> Contact Person Name
+            </label>
+            <Input value={formData.contactPerson} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} placeholder="e.g. Sara Khan" />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
               <Phone size={12} /> Phone Number *
             </label>
             <Input required value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="+92 300..." />
@@ -275,9 +319,44 @@ export const ClientManager = () => {
 
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+              <FileUp size={12} /> Upload CNIC (Image / PDF)
+            </label>
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={e => setCnicFile(e.target.files?.[0] || null)}
+              className="block w-full text-xs text-muted-foreground file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-muted file:text-foreground hover:file:bg-muted/80"
+            />
+            {uploadingCnic && (
+              <p className="text-xs text-primary flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Uploading CNIC...</p>
+            )}
+            {(existingCnicUrl) && !cnicFile && (
+              <a
+                href={existingCnicUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-primary flex items-center gap-1 hover:underline"
+              >
+                <Link2 size={12} /> View uploaded CNIC file
+              </a>
+            )}
+            {cnicFile && (
+              <p className="text-xs text-muted-foreground">Selected: {cnicFile.name}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
               <MapPin size={12} /> Address
             </label>
             <Input value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} placeholder="City, Area..." />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+              <Store size={12} /> Showroom Name
+            </label>
+            <Input value={formData.showroomName} onChange={e => setFormData({ ...formData, showroomName: e.target.value })} placeholder="e.g. Zohaib Motors" />
           </div>
 
           <div className="pt-4 border-t border-border">
@@ -291,7 +370,7 @@ export const ClientManager = () => {
             )}
           </div>
 
-          <Button type="submit" className="w-full bg-slate-900" disabled={uploadingSignature}>
+          <Button type="submit" className="w-full bg-slate-900" disabled={uploadingSignature || uploadingCnic}>
             {isEditing ? "Update Client" : "Add Client"}
           </Button>
         </form>
@@ -316,7 +395,7 @@ export const ClientManager = () => {
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {filteredClients.map(client => (
-            <div key={client.id} className="group flex items-center justify-between p-4 bg-card border border-border rounded-xl hover:border-blue-200 hover:shadow-sm transition-all">
+            <div key={client.id} onClick={() => setDetailsClient(client)} className="group flex items-center justify-between p-4 bg-card border border-border rounded-xl hover:border-blue-200 hover:shadow-sm transition-all cursor-pointer">
               <div className="flex items-center gap-4">
                 <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground font-bold">
                   {client.name.charAt(0).toUpperCase()}
@@ -335,13 +414,13 @@ export const ClientManager = () => {
 
 
               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="sm" onClick={() => setAssetsClient(client)} title="Assets">
+                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setAssetsClient(client); }} title="Assets">
                   <ImageIcon size={16} className="text-primary" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleEdit(client)} title="Edit">
+                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleEdit(client); }} title="Edit">
                   <Pencil size={16} className="text-primary" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleDelete(client.id)} title="Delete">
+                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(client.id); }} title="Delete">
                   <Trash2 size={16} className="text-red-500" />
                 </Button>
               </div>
@@ -361,6 +440,12 @@ export const ClientManager = () => {
         isOpen={!!assetsClient}
         onClose={() => setAssetsClient(null)}
         client={assetsClient}
+      />
+
+      {/* Client Details / Edit Modal */}
+      <ClientDetailsModal
+        client={detailsClient}
+        onClose={() => setDetailsClient(null)}
       />
     </div>
   );

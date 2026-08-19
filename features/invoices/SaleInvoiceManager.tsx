@@ -8,6 +8,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
@@ -44,6 +45,9 @@ export const SaleInvoiceManager = () => {
   const [ownerName, setOwnerName] = useState("");
   const [ownerFatherName, setOwnerFatherName] = useState("");
   const [ownerCnic, setOwnerCnic] = useState("");
+
+  // Notes field
+  const [notes, setNotes] = useState("");
 
   // Installment fields
   const [isInstallment, setIsInstallment] = useState(false);
@@ -97,6 +101,7 @@ export const SaleInvoiceManager = () => {
     setOwnerName("");
     setOwnerFatherName("");
     setOwnerCnic("");
+    setNotes(v?.notes || "");
     setIsInstallment(false);
     setDownPayment("");
     setMonthsPeriod("");
@@ -260,6 +265,7 @@ export const SaleInvoiceManager = () => {
           commissionPaid: 0,
           netProfit: profit,
           currentStatus: "SOLD",
+          notes: notes.trim() || null,
           updatedAt: serverTimestamp()
         };
         
@@ -570,6 +576,20 @@ export const SaleInvoiceManager = () => {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Notes Field */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <FileText size={12} /> Notes
+                </label>
+                <Textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="Add any notes about this sale invoice..."
+                  rows={3}
+                  className="bg-card text-foreground border-border placeholder:text-muted-foreground"
+                />
               </div>
 
               {/* Installment Toggle & Fields */}

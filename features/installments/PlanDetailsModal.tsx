@@ -4,6 +4,7 @@ import { collection, onSnapshot, query, orderBy, doc } from "firebase/firestore"
 import { db } from "@/lib/firebase";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { RecordPaymentModal } from "./RecordPaymentModal";
 import { User, Phone, Mail, Car, Hash, Calendar, CheckCircle2, CreditCard, DollarSign, Wallet, Clock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -72,9 +73,19 @@ export const PlanDetailsModal = ({ plan, open, onClose }: { plan: any, open: boo
 
   if (!open || !plan) return null;
 
+  // Find the current due installment: earliest unpaid installment whose due date hasn't passed
+  const currentDueInst = (livePlan?.installmentSchedule || [])
+    .filter((inst: any) => !inst.paid)
+    .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .at(0);
+
   const schedule = (livePlan?.installmentSchedule || [])
     .map((inst: any, index: number) => ({ ...inst, index }))
     .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+
+  // State for payment modal
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
   const totalPaid = schedule
     .filter((inst: any) => inst.paid)
@@ -177,6 +188,7 @@ export const PlanDetailsModal = ({ plan, open, onClose }: { plan: any, open: boo
                     {schedule.map((inst: any) => {
                       const dueDate = new Date(inst.dueDate);
                       const isOverdue = !inst.paid && dueDate.getTime() < new Date().setHours(0, 0, 0, 0);
+                      const isCurrentDue = inst.index === (currentDueInst?.index ?? -1);
                       return (
                         <tr key={inst.id || inst.index} className="hover:bg-muted/40 transition-colors">
                           <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{inst.index + 1}</td>
@@ -189,6 +201,8 @@ export const PlanDetailsModal = ({ plan, open, onClose }: { plan: any, open: boo
                               </span>
                             ) : isOverdue ? (
                               <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">Overdue</span>
+                            ) : isCurrentDue ? (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">Current</span>
                             ) : (
                               <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-50 text-slate-600 border border-slate-200">Upcoming</span>
                             )}
@@ -196,6 +210,19 @@ export const PlanDetailsModal = ({ plan, open, onClose }: { plan: any, open: boo
                           <td className="px-3 py-2.5 text-muted-foreground">
                             {inst.paid ? fmtDate(inst.paidAt) : "—"}
                           </td>
+                          {/* Make Payment column - only show on current-due installment */}
+                          {isCurrentDue && (
+                            <td className="px-3 py-2.5 text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs font-medium text-primary hover:text-emerald-700"
+                                onClick={() => setPlan(plan)}
+                              >
+                                Make Payment
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -246,6 +273,9 @@ export const PlanDetailsModal = ({ plan, open, onClose }: { plan: any, open: boo
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
+          {paymentOpen ? (
+            <RecordPaymentModal plan={plan} onClose={() => setPaymentOpen(false)} />
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

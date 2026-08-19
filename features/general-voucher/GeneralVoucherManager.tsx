@@ -53,11 +53,11 @@ interface Account {
 
 export const GeneralVoucherManager = () => {
   const { user } = useAuth();
-  
+
   // Data State
   const [vouchers, setVouchers] = useState<GeneralVoucher[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  
+
   // UI State
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -101,14 +101,14 @@ export const GeneralVoucherManager = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger if user is typing in an input/textarea
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      
+
       // Press 'n' or 'N' to open Create Voucher modal
       if (e.key.toLowerCase() === 'n') {
         e.preventDefault();
         if (!isCreateOpen) setIsCreateOpen(true);
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isCreateOpen]);
@@ -319,7 +319,7 @@ export const GeneralVoucherManager = () => {
           });
         }
       });
-      
+
       alert(`General Voucher No. ${voucher.voucherNo} deleted and balances reverted successfully.`);
     } catch (error: any) {
       console.error("General reversion failed:", error);
@@ -544,9 +544,9 @@ export const GeneralVoucherManager = () => {
       </div>
 
       {/* Modal: Create Voucher */}
-      <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if(!open) resetForm(); }}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
+      <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) resetForm(); }}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="sticky top-0 bg-white z-10 shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <FileText className="text-foreground" size={20} />
               Generate Journal Voucher
@@ -556,167 +556,170 @@ export const GeneralVoucherManager = () => {
             </DialogDescription>
           </DialogHeader>
 
-          {message && (
-            <div className={`p-3 rounded text-xs font-medium flex items-center gap-2 ${message.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-              {!message.includes('Error') && <CheckCircle2 size={14} />}
-              {message}
-            </div>
-          )}
+          <div className="overflow-y-auto max-h-[calc(90vh-140px)] py-4 space-y-4">
 
-          {accounts.length === 0 ? (
-            <div className="p-4 bg-muted rounded-lg text-amber-800 text-xs flex flex-col gap-2">
-              <div className="flex items-center gap-1.5 font-semibold">
-                <AlertTriangle size={16} /> No Accounts Configured
+            {message && (
+              <div className={`p-3 rounded text-xs font-medium flex items-center gap-2 ${message.includes('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                {!message.includes('Error') && <CheckCircle2 size={14} />}
+                {message}
               </div>
-              <p>You must create accounts in the Accounts Manager before creating journal transfers.</p>
-            </div>
-          ) : (
-            <form onSubmit={handleCreateVoucher} className="space-y-4 py-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground block">Voucher No (Auto)</label>
-                  <Input value={`JV-${nextVoucherNo.toString().padStart(4, '0')}`} disabled className="bg-muted font-mono font-bold cursor-not-allowed" />
+            )}
+
+            {accounts.length === 0 ? (
+              <div className="p-4 bg-muted rounded-lg text-amber-800 text-xs flex flex-col gap-2">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <AlertTriangle size={16} /> No Accounts Configured
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1"><Calendar size={12} /> Date *</label>
-                  <Input type="date" required value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
-                </div>
+                <p>You must create accounts in the Accounts Manager before creating journal transfers.</p>
               </div>
-
-              {/* Accounts Selection Grid */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground block">From Account (Source) *</label>
-                  <SearchSelector
-                    items={accounts}
-                    value={formData.fromAccountId}
-                    onChange={(val) => setFormData(prev => ({ ...prev, fromAccountId: val }))}
-                    placeholder="Choose account"
-                    searchPlaceholder="Search account..."
-                    getSearchFields={(acc) => [acc.name, acc.typeName]}
-                    itemKey={(acc) => acc.id}
-                    renderTrigger={(selected) =>
-                      selected ? (
-                        <span>{selected.name} <span className="text-muted-foreground text-xs ml-1">(Rs. {selected.balance.toLocaleString()})</span></span>
-                      ) : (
-                        <span className="text-muted-foreground">Choose account</span>
-                      )
-                    }
-                    renderItem={(acc) => (
-                      <div className="flex justify-between items-center w-full text-left">
-                        <span className="font-medium text-foreground">{acc.name}</span>
-                        <span className="text-xs text-muted-foreground font-mono">Rs. {acc.balance.toLocaleString()}</span>
-                      </div>
-                    )}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground block">To Account (Destination) *</label>
-                  <SearchSelector
-                    items={accounts}
-                    value={formData.toAccountId}
-                    onChange={(val) => setFormData(prev => ({ ...prev, toAccountId: val }))}
-                    placeholder="Choose account"
-                    searchPlaceholder="Search account..."
-                    getSearchFields={(acc) => [acc.name, acc.typeName]}
-                    itemKey={(acc) => acc.id}
-                    renderTrigger={(selected) =>
-                      selected ? (
-                        <span>{selected.name} <span className="text-muted-foreground text-xs ml-1">(Rs. {selected.balance.toLocaleString()})</span></span>
-                      ) : (
-                        <span className="text-muted-foreground">Choose account</span>
-                      )
-                    }
-                    renderItem={(acc) => (
-                      <div className="flex justify-between items-center w-full text-left">
-                        <span className="font-medium text-foreground">{acc.name}</span>
-                        <span className="text-xs text-muted-foreground font-mono">Rs. {acc.balance.toLocaleString()}</span>
-                      </div>
-                    )}
-                  />
-                </div>
-              </div>
-
-              {/* Balances Display Card */}
-              {(formData.fromAccountId || formData.toAccountId) && (
-                <div className="border rounded-lg overflow-hidden bg-muted">
-                  <div className="grid grid-cols-2 divide-x border-b p-3 text-xs">
-                    {/* From Account Balances */}
-                    <div className="pr-3 space-y-1">
-                      <span className="text-[10px] text-muted-foreground font-bold uppercase block">From Account (Change)</span>
-                      {fromAccountObj ? (
-                        <>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Current Balance:</span>
-                            <span className="font-medium text-foreground">Rs. {fromPrevBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                          </div>
-                          {enteredAmount > 0 && (
-                            <div className="flex justify-between border-t pt-1 mt-1 font-bold">
-                              <span className="text-muted-foreground">New Balance:</span>
-                              <span className="text-red-600">Rs. {fromNewBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground italic">No account selected</span>
-                      )}
-                    </div>
-
-                    {/* To Account Balances */}
-                    <div className="pl-3 space-y-1">
-                      <span className="text-[10px] text-muted-foreground font-bold uppercase block">To Account (Change)</span>
-                      {toAccountObj ? (
-                        <>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Current Balance:</span>
-                            <span className="font-medium text-foreground">Rs. {toPrevBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                          </div>
-                          {enteredAmount > 0 && (
-                            <div className="flex justify-between border-t pt-1 mt-1 font-bold">
-                              <span className="text-muted-foreground">New Balance:</span>
-                              <span className="text-green-600">Rs. {toNewBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground italic">No account selected</span>
-                      )}
-                    </div>
+            ) : (
+              <form onSubmit={handleCreateVoucher} className="space-y-4 py-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-muted-foreground block">Voucher No (Auto)</label>
+                    <Input value={`JV-${nextVoucherNo.toString().padStart(4, '0')}`} disabled className="bg-muted font-mono font-bold cursor-not-allowed" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1"><Calendar size={12} /> Date *</label>
+                    <Input type="date" required value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
                   </div>
                 </div>
-              )}
 
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground block">Transfer Amount (Rs.) *</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={e => setFormData({ ...formData, amount: e.target.value.replace("-", "") })}
-                  required
-                />
-              </div>
+                {/* Accounts Selection Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-muted-foreground block">From Account (Source) *</label>
+                    <SearchSelector
+                      items={accounts}
+                      value={formData.fromAccountId}
+                      onChange={(val) => setFormData(prev => ({ ...prev, fromAccountId: val }))}
+                      placeholder="Choose account"
+                      searchPlaceholder="Search account..."
+                      getSearchFields={(acc) => [acc.name, acc.typeName]}
+                      itemKey={(acc) => acc.id}
+                      renderTrigger={(selected) =>
+                        selected ? (
+                          <span>{selected.name} <span className="text-muted-foreground text-xs ml-1">(Rs. {selected.balance.toLocaleString()})</span></span>
+                        ) : (
+                          <span className="text-muted-foreground">Choose account</span>
+                        )
+                      }
+                      renderItem={(acc) => (
+                        <div className="flex justify-between items-center w-full text-left">
+                          <span className="font-medium text-foreground">{acc.name}</span>
+                          <span className="text-xs text-muted-foreground font-mono">Rs. {acc.balance.toLocaleString()}</span>
+                        </div>
+                      )}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-muted-foreground block">To Account (Destination) *</label>
+                    <SearchSelector
+                      items={accounts}
+                      value={formData.toAccountId}
+                      onChange={(val) => setFormData(prev => ({ ...prev, toAccountId: val }))}
+                      placeholder="Choose account"
+                      searchPlaceholder="Search account..."
+                      getSearchFields={(acc) => [acc.name, acc.typeName]}
+                      itemKey={(acc) => acc.id}
+                      renderTrigger={(selected) =>
+                        selected ? (
+                          <span>{selected.name} <span className="text-muted-foreground text-xs ml-1">(Rs. {selected.balance.toLocaleString()})</span></span>
+                        ) : (
+                          <span className="text-muted-foreground">Choose account</span>
+                        )
+                      }
+                      renderItem={(acc) => (
+                        <div className="flex justify-between items-center w-full text-left">
+                          <span className="font-medium text-foreground">{acc.name}</span>
+                          <span className="text-xs text-muted-foreground font-mono">Rs. {acc.balance.toLocaleString()}</span>
+                        </div>
+                      )}
+                    />
+                  </div>
+                </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground block">Description / Notes *</label>
-                <Input required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="e.g. Transferred cash to bank account, initial setup" />
-              </div>
+                {/* Balances Display Card */}
+                {(formData.fromAccountId || formData.toAccountId) && (
+                  <div className="border rounded-lg overflow-hidden bg-muted">
+                    <div className="grid grid-cols-2 divide-x border-b p-3 text-xs">
+                      {/* From Account Balances */}
+                      <div className="pr-3 space-y-1">
+                        <span className="text-[10px] text-muted-foreground font-bold uppercase block">From Account (Change)</span>
+                        {fromAccountObj ? (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Current Balance:</span>
+                              <span className="font-medium text-foreground">Rs. {fromPrevBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            {enteredAmount > 0 && (
+                              <div className="flex justify-between border-t pt-1 mt-1 font-bold">
+                                <span className="text-muted-foreground">New Balance:</span>
+                                <span className="text-red-600">Rs. {fromNewBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground italic">No account selected</span>
+                        )}
+                      </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1"><Paperclip size={12} /> Attachment (PDF/Image)</label>
-                <Input type="file" accept="image/*,.pdf" onChange={e => setAttachmentFile(e.target.files?.[0] || null)} />
-                <p className="text-[9px] text-muted-foreground">Optional: Attach a receipt or proof of payment.</p>
-              </div>
+                      {/* To Account Balances */}
+                      <div className="pl-3 space-y-1">
+                        <span className="text-[10px] text-muted-foreground font-bold uppercase block">To Account (Change)</span>
+                        {toAccountObj ? (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Current Balance:</span>
+                              <span className="font-medium text-foreground">Rs. {toPrevBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            {enteredAmount > 0 && (
+                              <div className="flex justify-between border-t pt-1 mt-1 font-bold">
+                                <span className="text-muted-foreground">New Balance:</span>
+                                <span className="text-green-600">Rs. {toNewBal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground italic">No account selected</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-              <DialogFooter className="pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={loading}>Cancel</Button>
-                <Button type="submit" disabled={loading} className="bg-secondary hover:bg-secondary/90 text-white text-white">
-                  {loading ? "Processing..." : "Generate Voucher"}
-                </Button>
-              </DialogFooter>
-            </form>
-          )}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground block">Transfer Amount (Rs.) *</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={formData.amount}
+                    onChange={e => setFormData({ ...formData, amount: e.target.value.replace("-", "") })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground block">Description / Notes *</label>
+                  <Input required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="e.g. Transferred cash to bank account, initial setup" />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1"><Paperclip size={12} /> Attachment (PDF/Image)</label>
+                  <Input type="file" accept="image/*,.pdf" onChange={e => setAttachmentFile(e.target.files?.[0] || null)} />
+                  <p className="text-[9px] text-muted-foreground">Optional: Attach a receipt or proof of payment.</p>
+                </div>
+
+                <DialogFooter className="pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={loading}>Cancel</Button>
+                  <Button type="submit" disabled={loading} className="bg-secondary hover:bg-secondary/90 text-white text-white">
+                    {loading ? "Processing..." : "Generate Voucher"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -738,7 +741,7 @@ export const GeneralVoucherManager = () => {
                 </Button>
               </div>
             </div>
-            
+
             <div className="flex flex-1 overflow-hidden bg-muted p-4 md:p-8">
               <div className="flex-1 overflow-y-auto">
                 <div className="shadow-2xl shadow-slate-200 rounded-xl overflow-hidden ring-1 ring-slate-200 bg-card">

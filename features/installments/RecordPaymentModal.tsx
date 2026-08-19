@@ -21,7 +21,8 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [method, setMethod] = useState("cash");
   const [receivingAccountId, setReceivingAccountId] = useState("");
-  
+  const [notes, setNotes] = useState("");
+
   // Find next unpaid installment to pre-fill amount
   useEffect(() => {
     if (plan && open) {
@@ -64,7 +65,7 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
         const planSnap = await tx.get(planRef);
         if (!planSnap.exists()) throw new Error("Plan not found.");
         const planData = planSnap.data();
-        
+
         // 2. Get Receiving Account
         const accRef = doc(db, "accounts", receivingAccountId);
         const accSnap = await tx.get(accRef);
@@ -79,10 +80,10 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
         // 3. Update Plan Schedule
         let remainingToApply = amountVal;
         let schedule = [...(planData.installmentSchedule || [])];
-        
+
         // Sort chronologically just to apply payment safely
         schedule.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-        
+
         for (let i = 0; i < schedule.length; i++) {
           if (!schedule[i].paid && remainingToApply > 0) {
             if (remainingToApply >= schedule[i].amount) {
@@ -131,7 +132,7 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
         tx.set(vRef, {
           voucherNo: generatedVoucherNo,
           date,
-          description: `Installment Payment from ${planData.clientName || planData.clientId} for Vehicle ${planData.vehicleFileId}`,
+          description: `Installment Payment from ${planData.clientName || planData.clientId} for Vehicle ${planData.vehicleFileId}${notes ? ": " + notes : ""}`,
           amount: amountVal,
           debit: amountVal,
           credit: 0,
@@ -143,7 +144,7 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
           counterAccountId: planData.clientId,
           counterAccountName: planData.clientName,
           counterType: "credit",
-          counterPreviousBalance: planData.outstandingBalance,
+          counterPreviousBalance: planData.outstandingBalance || 0,
           counterNewBalance: newOutstandingBalance,
           createdAt: serverTimestamp(),
           createdBy: user?.uid
@@ -154,7 +155,7 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
           action: `Recorded Installment Payment of Rs. ${amountVal.toLocaleString()} for ${planData.clientName}`,
           performedBy: user?.uid,
           timestamp: serverTimestamp(),
-          type: "INSTALLMENT_PAYMENT"
+          type: "ACCOUNTING_ACTION"
         });
       });
 
@@ -174,8 +175,9 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] p-0 flex flex-col overflow-hidden">
+        {/* Header — fixed, never scrolls */}
+        <DialogHeader className="px-6 pt-6 pb-4 shrink-0 border-b border-border">
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="text-emerald-500" size={20} />
             Record Payment
@@ -184,14 +186,14 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
             Applying payment to {plan.clientName}'s plan. Outstanding balance is <strong>Rs. {Number(plan.outstandingBalance || 0).toLocaleString()}</strong>.
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="space-y-4 py-4">
+
+        {/* Body — the only scrollable region */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
           {message && (
-            <div className={`p-3 rounded-lg text-sm font-medium flex items-center gap-2 ${
-              message.startsWith("Error")
-                ? "bg-red-50 text-red-700 border border-red-100"
-                : "bg-green-50 text-green-700 border border-green-100"
-            }`}>
+            <div className={`p-3 rounded-lg text-sm font-medium flex items-center gap-2 ${message.startsWith("Error")
+              ? "bg-red-50 text-red-700 border border-red-100"
+              : "bg-green-50 text-green-700 border border-green-100"
+              }`}>
               {message.startsWith("Error") ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
               {message}
             </div>
@@ -199,20 +201,29 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
 
           <div className="space-y-2">
             <label className="text-xs font-semibold text-muted-foreground uppercase">Payment Amount (PKR) *</label>
-            <Input 
-              type="number" 
-              value={amount} 
-              onChange={e => setAmount(e.target.value)} 
+            <Input
+              type="number"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
               placeholder="e.g. 25000"
             />
           </div>
 
           <div className="space-y-2">
+            <label className="text-xs font-semibold text-muted-foreground uppercase">Notes</label>
+            <Input
+              placeholder="e.g. Payment received in cash"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
             <label className="text-xs font-semibold text-muted-foreground uppercase">Payment Date *</label>
-            <Input 
-              type="date" 
-              value={date} 
-              onChange={e => setDate(e.target.value)} 
+            <Input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
             />
           </div>
 
@@ -258,7 +269,8 @@ export const RecordPaymentModal = ({ plan, open, onClose }: { plan: any, open: b
           </div>
         </div>
 
-        <DialogFooter>
+        {/* Footer — fixed, never scrolls */}
+        <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
           <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
           <Button onClick={handleRecordPayment} disabled={loading || !amount || !receivingAccountId} className="bg-emerald-600 hover:bg-emerald-700 text-white">
             {loading ? <><Loader2 size={16} className="animate-spin mr-2" /> Processing...</> : "Confirm Payment"}

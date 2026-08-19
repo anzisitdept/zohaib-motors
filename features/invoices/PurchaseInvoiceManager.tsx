@@ -10,13 +10,15 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { VehicleDetailModal } from "@/features/inventory/VehicleDetailModal";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import {
   CheckCircle2, Loader2, Car, DollarSign, Users, Wallet,
-  FileText, ChevronDown, Info, CreditCard, AlertTriangle, Printer
+  FileText, ChevronDown, Info, CreditCard, AlertTriangle, Printer, Eye
 } from "lucide-react";
 import { SearchSelector } from "@/components/ui/SearchSelector";
 import { VehicleSelector } from "@/features/inventory/VehicleSelector";
@@ -37,6 +39,7 @@ export const PurchaseInvoiceManager = () => {
   // Printing state
   const [printingInvoice, setPrintingInvoice] = useState<any | null>(null);
   const [printingPurchaseInvoice, setPrintingPurchaseInvoice] = useState<any | null>(null);
+  const [viewingVehicle, setViewingVehicle] = useState<any | null>(null);
 
   // Selection
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
@@ -61,6 +64,9 @@ export const PurchaseInvoiceManager = () => {
   // Invoice history
   const [purchaseInvoices, setPurchaseInvoices] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Notes field
+  const [notes, setNotes] = useState("");
 
   // UI
   const [loading, setLoading] = useState(false);
@@ -110,11 +116,13 @@ export const PurchaseInvoiceManager = () => {
       setIsPaid(v.isPaid || false);
       setPaymentAccountId(v.paymentAccountId || "");
       setSelectedSellerId(v.sellerClientId || "");
+      setNotes(v.notes || "");
     } else {
       setPurchasePrice("");
       setIsPaid(false);
       setPaymentAccountId("");
       setSelectedSellerId("");
+      setNotes("");
     }
     setIsInstallment(false);
     setDownPayment("");
@@ -392,6 +400,7 @@ export const PurchaseInvoiceManager = () => {
           vehicleAccountId,
           capitalizedCost: priceVal,
           totalExpenses: selectedVehicle.totalExpenses || 0,
+          notes: notes.trim() || null,
           updatedAt: serverTimestamp()
         });
 
@@ -557,8 +566,13 @@ export const PurchaseInvoiceManager = () => {
                   {selectedVehicle.purchasePrice > 0 && (
                     <InfoRow label="Existing Purchase Price" value={`Rs. ${Number(selectedVehicle.purchasePrice).toLocaleString()}`} />
                   )}
-                </div>
+</div>
               </div>
+            )} 
+
+            {/* View Vehicle Details */}
+            {viewingVehicle && (
+              <VehicleDetailModal isOpen={true} onClose={() => setViewingVehicle(null)} vehicle={viewingVehicle} />
             )}
 
             {/* Seller / Client Selection */}
@@ -681,6 +695,20 @@ export const PurchaseInvoiceManager = () => {
                     />
                   </div>
                 )}
+
+                {/* Notes Field */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <FileText size={12} /> Notes
+                  </label>
+                  <Textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="Add any notes about this purchase invoice..."
+                    rows={3}
+                    className="bg-card text-foreground border-border placeholder:text-muted-foreground"
+                  />
+                </div>
 
                 {/* Installment Toggle & Fields */}
                 <div className="pt-2 border-t border-border mt-4">
@@ -914,6 +942,9 @@ export const PurchaseInvoiceManager = () => {
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
+                            <Button variant="ghost" size="icon" onClick={() => setViewingVehicle(inv)} className="h-8 w-8 text-muted-foreground hover:text-blue-600 hover:bg-blue-50" title="View Details">
+                              <Eye size={16} />
+                            </Button>
                             <Button variant="ghost" size="icon" onClick={() => setPrintingPurchaseInvoice(inv)} className="h-8 w-8 text-muted-foreground hover:text-blue-600 hover:bg-blue-50" title="Print Invoice">
                               <Printer size={16} />
                             </Button>

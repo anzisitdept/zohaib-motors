@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Search, CheckCircle2, History, Printer, Eye } from "lucide-react";
+import { RecordPaymentModal } from "./RecordPaymentModal";
 import { cn } from "@/lib/utils";
 import { PlanDetailsModal } from "./PlanDetailsModal";
 
@@ -17,6 +18,10 @@ export const SettledPlansManager = () => {
   const [activeTab, setActiveTab] = useState<"active" | "settled">("settled");
   // For the Plan Details modal
   const [viewPlan, setViewPlan] = useState<any | null>(null);
+  // For the Payment modal
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentPlan, setPaymentPlan] = useState<any | null>(null);
   useEffect(() => {
     // Fetch based on activeTab
     const statuses = activeTab === "active" ? ["active", "due_soon", "overdue"] : ["settled"];
@@ -24,10 +29,10 @@ export const SettledPlansManager = () => {
       collection(db, "installmentPlans"),
       where("status", "in", statuses)
     );
-    
+
     const unsub = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      
+
       const enriched = docs.map((plan: any) => {
         // Derive settlement date by looking at the last paidAt in the schedule
         let settledOn = plan.updatedAt?.toDate ? plan.updatedAt.toDate() : null; // fallback
@@ -35,11 +40,11 @@ export const SettledPlansManager = () => {
 
         if (Array.isArray(plan.installmentSchedule)) {
           numPaid = plan.installmentSchedule.filter((i: any) => i.paid).length;
-          
+
           const sortedPaid = plan.installmentSchedule
             .filter((i: any) => i.paid && i.paidAt)
             .sort((a: any, b: any) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());
-            
+
           if (sortedPaid.length > 0) {
             settledOn = new Date(sortedPaid[0].paidAt);
           }
@@ -89,17 +94,17 @@ export const SettledPlansManager = () => {
             <p className="text-sm text-muted-foreground">Historical archive of installment contracts</p>
           </div>
         </div>
-        
+
         {/* Tabs */}
         <div className="flex bg-muted p-1 rounded-lg border border-border w-fit">
-          <button 
-            onClick={() => setActiveTab("active")} 
+          <button
+            onClick={() => setActiveTab("active")}
             className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === "active" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             Active Plans
           </button>
-          <button 
-            onClick={() => setActiveTab("settled")} 
+          <button
+            onClick={() => setActiveTab("settled")}
             className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === "settled" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             Settled Plans
@@ -168,13 +173,12 @@ export const SettledPlansManager = () => {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                          plan.status === 'settled' 
-                            ? 'bg-slate-100 text-slate-700 border-slate-200' 
-                            : plan.status === 'overdue' 
-                            ? 'bg-red-50 text-red-700 border-red-200' 
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        }`}>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${plan.status === 'settled'
+                            ? 'bg-slate-100 text-slate-700 border-slate-200'
+                            : plan.status === 'overdue'
+                              ? 'bg-red-50 text-red-700 border-red-200'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          }`}>
                           {plan.status === 'due_soon' ? 'Due Soon' : plan.status.charAt(0).toUpperCase() + plan.status.slice(1)}
                         </span>
                       </td>
@@ -187,6 +191,11 @@ export const SettledPlansManager = () => {
                             <Printer size={16} />
                           </Button>
                         </a>
+                        {plan.status !== 'settled' && (
+                          <Button variant="outline" size="sm" className="text-xs font-medium text-primary hover:text-emerald-700" onClick={() => { setPaymentPlan(plan); setPaymentOpen(true); }}>
+                            Make Payment
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -203,6 +212,13 @@ export const SettledPlansManager = () => {
           plan={viewPlan}
           open={!!viewPlan}
           onClose={() => setViewPlan(null)}
+        />
+      )}
+      {paymentOpen && paymentPlan && (
+        <RecordPaymentModal
+          plan={paymentPlan}
+          open={paymentOpen}
+          onClose={() => { setPaymentOpen(false); setPaymentPlan(null); }}
         />
       )}
     </div>
